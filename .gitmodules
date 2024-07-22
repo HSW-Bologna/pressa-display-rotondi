@@ -1,0 +1,6 @@
+[submodule "lib/lvgl"]
+	path = lib/lvgl
+	url = https://github.com/lvgl/lvgl.git
+[submodule "lib/c-page-manager"]
+	path = lib/c-page-manager
+	url = https://github.com/Maldus512/c-page-manager.git
