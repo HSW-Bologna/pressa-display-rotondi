@@ -4,8 +4,10 @@
 #include "src/core/lv_obj_event.h"
 #include "src/misc/lv_types.h"
 #include "src/page.h"
+#include "../style.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <time.h>
 
 
 enum {
@@ -21,6 +23,8 @@ struct page_data {
     lv_obj_t * btn_p;
     lv_obj_t * btn_s;
     lv_obj_t * btn_i;
+
+    lv_obj_t *date_time_label;
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
@@ -85,6 +89,11 @@ static void open_page(pman_handle_t handle, void *state) {
         lv_obj_align(btn4, LV_ALIGN_BOTTOM_RIGHT, -offsetx, -offsety);
         view_register_object_default_callback(btn4, INFO_BTN_ID);
         pdata->btn_i = btn4;
+
+        lv_obj_t *date_time_label = lv_label_create(lv_scr_act());
+        lv_obj_set_style_text_align(date_time_label, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_align(date_time_label, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+        pdata->date_time_label = date_time_label;
 
         /*
         if (pdata->message != NULL) {
@@ -162,7 +171,13 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     return msg;
 }
 
-static void update_page(model_t *model, struct page_data *pdata) {}
+static void update_page(model_t *model, struct page_data *pdata) {
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    char date_time[32];
+    strftime(date_time, sizeof(date_time), "%Y-%m-%d %H:%M:%S", tm);
+    lv_label_set_text(pdata->date_time_label, date_time);
+}
 
 static void close_page(void *state) {
     (void)state;

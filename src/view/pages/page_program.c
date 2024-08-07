@@ -7,13 +7,36 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#define NUM_CHANNELS 16
+#define NUM_TIME_UNITS 25
+#define MAX_LABEL_WIDTH 150
+#define CHANNEL_ROW_OFFSET 50
+
+static const lv_style_const_prop_t style_label_props[] = {
+    LV_STYLE_CONST_RADIUS(5),
+    LV_STYLE_CONST_BORDER_WIDTH(2),
+    LV_STYLE_CONST_BG_COLOR(LV_PALETTE_BLUE),
+};
+LV_STYLE_CONST_INIT(style_label, style_label_props);
+
 
 enum {
-    BTN_ID,
+    FILESYSTEM_BTN_ID,
+    PLAY_BTN_ID,
+    PROGRAM_NAME_LABEL_ID,
+    DATETIME_LABEL_ID,
+    PROGRAM_BTNMATRIX_ID,
 };
 
 struct page_data {
     char *message;
+    lv_obj_t *file_system_icon;
+    lv_obj_t *play_icon;
+    lv_obj_t *program_name_label;
+    lv_obj_t *date_time_label;
+
+    char *channel_names[NUM_CHANNELS];
+    bool channels_states[NUM_CHANNELS][NUM_TIME_UNITS];
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
@@ -34,14 +57,41 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    {
-        lv_obj_t *btn = lv_btn_create(lv_scr_act());
-        // view_register_object_default_callback(btn, BTN_ONOFF_ID);
-        lv_obj_t *lbl = lv_label_create(btn);
-        lv_obj_center(lbl);
-        lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -16);
-        view_register_object_default_callback(btn, 0);
-    }
+    int32_t offsetx = 100;
+
+    lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
+    lv_obj_t *lbl1 = lv_label_create(btn1);
+    lv_label_set_text(lbl1, "FILES");
+    lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, 0, 0);
+    view_register_object_default_callback(btn1, FILESYSTEM_BTN_ID);
+
+    lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
+    lv_obj_t *lbl2 = lv_label_create(btn2);
+    lv_label_set_text(lbl2, "PLAY");
+    lv_obj_align(btn2, LV_ALIGN_TOP_LEFT, offsetx, 0);
+    view_register_object_default_callback(btn1, PLAY_BTN_ID);
+
+    lv_obj_t *program_name_label = lv_label_create(lv_scr_act());
+    lv_obj_set_style_text_align(program_name_label, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_align(program_name_label, LV_ALIGN_TOP_LEFT, offsetx * 2, 0);
+    lv_label_set_text(program_name_label, "Program Name");
+    pdata->program_name_label = program_name_label;
+
+    lv_obj_t *date_time_label = lv_label_create(lv_scr_act());
+    lv_obj_set_style_text_align(date_time_label, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align(date_time_label, LV_ALIGN_TOP_LEFT, offsetx * 3.5, 0);
+    pdata->date_time_label = date_time_label;
+
+    // programs settings
+    lv_obj_t *channel_label = lv_label_create(lv_scr_act());
+    lv_obj_set_style_text_align(channel_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(channel_label, LV_ALIGN_TOP_LEFT, 0, CHANNEL_ROW_OFFSET);
+    lv_obj_add_style(channel_label, (lv_style_t *)&style_label, LV_STATE_DEFAULT);
+    lv_obj_set_width(channel_label, MAX_LABEL_WIDTH);
+    lv_label_set_text(channel_label, "Tooltip CH 1");
+
+    // array that shows the 25 buttons showing if the channel is on or off in that time unit
+    
 
     update_page(model, pdata);
 }

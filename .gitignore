@@ -3,3 +3,5 @@ app
 .cache
 .sconsign.dblite
 build-*
+compile_commands.json
+.vscode/settings.json
