@@ -6,6 +6,7 @@
 #include "src/page.h"
 #include <assert.h>
 #include <stdlib.h>
+#include "../common.h"
 
 
 enum {
@@ -45,10 +46,15 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_t *btnmatrix = lv_btnmatrix_create(lv_scr_act());
     lv_btnmatrix_set_map(btnmatrix, map);
     lv_obj_set_size(btnmatrix, 600, 400);
-    lv_obj_align(btnmatrix, LV_ALIGN_CENTER, -16, 0);
+    lv_obj_align(btnmatrix, LV_ALIGN_CENTER, 0, 0);
     view_register_object_default_callback(btnmatrix, PROGRAM_BTNMATRIX_ID);
 
     pdata->btnmx = btnmatrix;
+
+    lv_obj_t* datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
+    lv_obj_t* logo_widget = view_common_create_logo_widget(lv_scr_act());
+
+    lv_obj_t* folder_widget = view_common_create_folder_widget(lv_scr_act(), LV_ALIGN_BOTTOM_LEFT, 5, -5);
 
     update_page(model, pdata);
 }
