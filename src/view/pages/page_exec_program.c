@@ -35,6 +35,59 @@ struct page_data {
 
 static void update_page(model_t *model, struct page_data *pdata);
 
+#define NUM_ROWS 15
+
+void create_rows(void) {
+    for (int i = 0; i < NUM_ROWS; i++) {
+
+        lv_coord_t row_offset = CHANNEL_ROW_OFFSET + (i * 27);
+        // channel name label
+        lv_obj_t *channel_label = lv_label_create(lv_scr_act());
+        lv_obj_set_style_text_align(channel_label, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(channel_label, LV_ALIGN_TOP_LEFT, 0, row_offset);
+        lv_obj_set_width(channel_label, MAX_LABEL_WIDTH);
+        lv_label_set_text(channel_label, "Tooltip CH");
+        lv_label_set_text_fmt(channel_label, "%s %d", "Tooltip CH", i + 1);
+
+        // array that shows the 25 buttons showing if the channel is on or off in that time unit
+        lv_obj_t *btn_matrix = lv_btnmatrix_create(lv_scr_act());
+
+        static lv_style_t style_bg;
+        lv_style_init(&style_bg);
+        lv_style_set_pad_all(&style_bg, 0);
+        lv_style_set_pad_gap(&style_bg, 0);
+        lv_style_set_clip_corner(&style_bg, true);
+        lv_style_set_radius(&style_bg, LV_RADIUS_CIRCLE);
+        lv_style_set_border_width(&style_bg, 0);
+
+        static lv_style_t style_btn;
+        lv_style_init(&style_btn);
+        lv_style_set_radius(&style_btn, 0);
+        lv_style_set_border_width(&style_btn, 1);
+        lv_style_set_border_opa(&style_btn, LV_OPA_50);
+        lv_style_set_border_color(&style_btn, lv_palette_main(LV_PALETTE_GREY));
+        lv_style_set_border_side(&style_btn, LV_BORDER_SIDE_INTERNAL);
+
+        lv_obj_add_style(btn_matrix, &style_bg, LV_PART_MAIN);
+        lv_obj_add_style(btn_matrix, &style_btn, LV_PART_ITEMS);
+
+        lv_obj_set_size(btn_matrix, BTN_SIZE * NUM_TIME_UNITS, BTN_SIZE);
+        lv_obj_align(btn_matrix, LV_ALIGN_TOP_LEFT, MAX_LABEL_WIDTH + 5, row_offset);
+        static const char *map[] = {"-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-",
+                                    "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", ""};
+
+        lv_btnmatrix_set_map(btn_matrix, map);
+
+        // label total number of active channels
+        lv_obj_t *total_label = lv_label_create(lv_scr_act());
+        lv_obj_set_style_text_align(total_label, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(total_label, LV_ALIGN_TOP_RIGHT, 0, row_offset);
+        lv_obj_set_width(total_label, MAX_LABEL_WIDTH);
+        lv_label_set_text(total_label, "T:");
+        lv_label_set_text_fmt(total_label, "%s %d", "T:", i + 1);
+    }
+}
+
 static void *create_page(pman_handle_t handle, void *extra) {
     (void)handle;
     (void)extra;
@@ -67,42 +120,7 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
 
 
-    // channel name label
-    lv_obj_t *channel_label = lv_label_create(lv_scr_act());
-    lv_obj_set_style_text_align(channel_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(channel_label, LV_ALIGN_TOP_LEFT, 0, CHANNEL_ROW_OFFSET);
-    lv_obj_set_width(channel_label, MAX_LABEL_WIDTH);
-    lv_label_set_text(channel_label, "Tooltip CH 1");
-
-    // array that shows the 25 buttons showing if the channel is on or off in that time unit
-    lv_obj_t *btn_matrix = lv_btnmatrix_create(lv_scr_act());
-
-
-    static lv_style_t style_bg;
-    lv_style_init(&style_bg);
-    lv_style_set_pad_all(&style_bg, 0);
-    lv_style_set_pad_gap(&style_bg, 0);
-    lv_style_set_clip_corner(&style_bg, true);
-    lv_style_set_radius(&style_bg, LV_RADIUS_CIRCLE);
-    lv_style_set_border_width(&style_bg, 0);
-
-    static lv_style_t style_btn;
-    lv_style_init(&style_btn);
-    lv_style_set_radius(&style_btn, 0);
-    lv_style_set_border_width(&style_btn, 1);
-    lv_style_set_border_opa(&style_btn, LV_OPA_50);
-    lv_style_set_border_color(&style_btn, lv_palette_main(LV_PALETTE_GREY));
-    lv_style_set_border_side(&style_btn, LV_BORDER_SIDE_INTERNAL);
-
-    lv_obj_add_style(btn_matrix, &style_bg, LV_PART_MAIN);
-    lv_obj_add_style(btn_matrix, &style_btn, LV_PART_ITEMS);
-
-    lv_obj_set_size(btn_matrix, BTN_SIZE * NUM_TIME_UNITS, BTN_SIZE);
-    lv_obj_align(btn_matrix, LV_ALIGN_TOP_LEFT, MAX_LABEL_WIDTH + 5, CHANNEL_ROW_OFFSET);
-    static const char *map[] = {"-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-",
-                                "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", ""};
-
-    lv_btnmatrix_set_map(btn_matrix, map);
+    create_rows();
 
     update_page(model, pdata);
 }
