@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <time.h>
+#include "../common.h"
 
 
 enum {
@@ -45,61 +46,44 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    {
-        /*
-        lv_obj_t *btn = lv_btn_create(lv_scr_act());
-        // view_register_object_default_callback(btn, BTN_ONOFF_ID);
-        lv_obj_t *lbl = lv_label_create(btn);
-        lv_obj_center(lbl);
-        lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -16);
-        view_register_object_default_callback(btn, 0);*/
+    int32_t offsetx = 100;
+    int32_t offsety = 100;
 
-        int32_t offsetx = 100;
-        int32_t offsety = 100;
+    // create 4 buttons in a 2x2 grid
+    lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
+    lv_obj_t *lbl1 = lv_label_create(btn1);
+    lv_label_set_text(lbl1, "Exe");
+    lv_obj_center(lbl1);
+    lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, offsetx, offsety);
+    view_register_object_default_callback(btn1, EXECUTE_BTN_ID);
+    pdata->btn_e = btn1;
 
-        // create 4 buttons in a 2x2 grid
-        lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
-        lv_obj_t *lbl1 = lv_label_create(btn1);
-        lv_label_set_text(lbl1, "Exe");
-        lv_obj_center(lbl1);
-        lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, offsetx, offsety);
-        view_register_object_default_callback(btn1, EXECUTE_BTN_ID);
-        pdata->btn_e = btn1;
+    lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
+    lv_obj_t *lbl2 = lv_label_create(btn2);
+    lv_label_set_text(lbl2, "Program");
+    lv_obj_center(lbl2);
+    lv_obj_align(btn2, LV_ALIGN_TOP_RIGHT, -offsetx, offsety);
+    view_register_object_default_callback(btn2, PROGRAMS_BTN_ID);
+    pdata->btn_p = btn2;
 
-        lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
-        lv_obj_t *lbl2 = lv_label_create(btn2);
-        lv_label_set_text(lbl2, "Program");
-        lv_obj_center(lbl2);
-        lv_obj_align(btn2, LV_ALIGN_TOP_RIGHT, -offsetx, offsety);
-        view_register_object_default_callback(btn2, PROGRAMS_BTN_ID);
-        pdata->btn_p = btn2;
+    lv_obj_t *btn3 = lv_btn_create(lv_scr_act());
+    lv_obj_t *lbl3 = lv_label_create(btn3);
+    lv_label_set_text(lbl3, "Settings");
+    lv_obj_center(lbl3);
+    lv_obj_align(btn3, LV_ALIGN_BOTTOM_LEFT, offsetx, -offsety);
+    view_register_object_default_callback(btn3, SETTINGS_BTN_ID);
+    pdata->btn_s = btn3;
 
-        lv_obj_t *btn3 = lv_btn_create(lv_scr_act());
-        lv_obj_t *lbl3 = lv_label_create(btn3);
-        lv_label_set_text(lbl3, "Settings");
-        lv_obj_center(lbl3);
-        lv_obj_align(btn3, LV_ALIGN_BOTTOM_LEFT, offsetx, -offsety);
-        view_register_object_default_callback(btn3, SETTINGS_BTN_ID);
-        pdata->btn_s = btn3;
+    lv_obj_t *btn4 = lv_btn_create(lv_scr_act());
+    lv_obj_t *lbl4 = lv_label_create(btn4);
+    lv_label_set_text(lbl4, "Info");
+    lv_obj_center(lbl4);
+    lv_obj_align(btn4, LV_ALIGN_BOTTOM_RIGHT, -offsetx, -offsety);
+    view_register_object_default_callback(btn4, INFO_BTN_ID);
+    pdata->btn_i = btn4;
 
-        lv_obj_t *btn4 = lv_btn_create(lv_scr_act());
-        lv_obj_t *lbl4 = lv_label_create(btn4);
-        lv_label_set_text(lbl4, "Info");
-        lv_obj_center(lbl4);
-        lv_obj_align(btn4, LV_ALIGN_BOTTOM_RIGHT, -offsetx, -offsety);
-        view_register_object_default_callback(btn4, INFO_BTN_ID);
-        pdata->btn_i = btn4;
-
-        lv_obj_t *date_time_label = lv_label_create(lv_scr_act());
-        lv_obj_set_style_text_align(date_time_label, LV_TEXT_ALIGN_RIGHT, 0);
-        lv_obj_align(date_time_label, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
-        pdata->date_time_label = date_time_label;
-
-        /*
-        if (pdata->message != NULL) {
-            lv_label_set_text(lbl, pdata->message);
-        }*/
-    }
+    lv_obj_t* datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
+    lv_obj_t* logo_widget = view_common_create_logo_widget(lv_scr_act());
 
     update_page(model, pdata);
 }
@@ -172,11 +156,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
 }
 
 static void update_page(model_t *model, struct page_data *pdata) {
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-    char date_time[32];
-    strftime(date_time, sizeof(date_time), "%Y-%m-%d %H:%M:%S", tm);
-    lv_label_set_text(pdata->date_time_label, date_time);
+
 }
 
 static void close_page(void *state) {
