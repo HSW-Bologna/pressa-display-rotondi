@@ -45,8 +45,21 @@ static void open_page(pman_handle_t handle, void *state) {
 
     lv_obj_t *btnmatrix = lv_btnmatrix_create(lv_scr_act());
     lv_btnmatrix_set_map(btnmatrix, map);
-    lv_obj_set_size(btnmatrix, 600, 400);
+    lv_obj_set_size(btnmatrix, 550, 400);
     lv_obj_align(btnmatrix, LV_ALIGN_CENTER, 0, 0);
+
+    // change the style of the buttons to be blue
+    lv_obj_set_style_bg_color(btnmatrix, lv_palette_main(LV_PALETTE_BLUE), LV_PART_ITEMS);
+
+    // change the padding of the buttons
+    lv_obj_set_style_pad_row(btnmatrix, 20, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(btnmatrix, 40, LV_PART_MAIN);
+
+    // remove background and border
+    lv_obj_set_style_bg_color(btnmatrix, lv_palette_main(LV_PALETTE_GREY), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(btnmatrix, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(btnmatrix, 0, LV_PART_MAIN);
+
     view_register_object_default_callback(btnmatrix, PROGRAM_BTNMATRIX_ID);
 
     pdata->btnmx = btnmatrix;
