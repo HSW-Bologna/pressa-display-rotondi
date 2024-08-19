@@ -104,7 +104,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             printf("num prog %d\n", pdata->num_prog);
                             size_t *extra                      = malloc(sizeof(size_t) * 1);
                             extra[0]                           = pdata->num_prog;
-                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_program, extra);
+                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_exec_program, extra);
                             break;
                         
                         default:

@@ -42,3 +42,15 @@ lv_obj_t* view_common_create_folder_widget(lv_obj_t* parent, lv_align_t align, l
 
     return btn;
 }
+
+lv_obj_t* view_common_create_play_button(lv_obj_t* parent, lv_align_t align, lv_coord_t x, lv_coord_t y) {
+    lv_obj_t* btn = lv_button_create(parent);
+    lv_obj_set_size(btn, 50, 50);
+    lv_obj_align(btn, align, x, y);
+
+    lv_obj_t* folder_icon = lv_img_create(btn);
+    lv_img_set_src(folder_icon, LV_SYMBOL_PLAY);
+    lv_obj_center(folder_icon);
+
+    return btn;
+}

@@ -6,19 +6,13 @@
 #include "src/page.h"
 #include <assert.h>
 #include <stdlib.h>
+#include "../common.h"
 
-#define NUM_CHANNELS 16
-#define NUM_TIME_UNITS 25
-#define MAX_LABEL_WIDTH 150
-#define CHANNEL_ROW_OFFSET 50
-
-static const lv_style_const_prop_t style_label_props[] = {
-    LV_STYLE_CONST_RADIUS(5),
-    LV_STYLE_CONST_BORDER_WIDTH(2),
-    LV_STYLE_CONST_BG_COLOR(LV_PALETTE_BLUE),
-};
-LV_STYLE_CONST_INIT(style_label, style_label_props);
-
+#define NUM_CHANNELS       16
+#define NUM_TIME_UNITS     25
+#define MAX_LABEL_WIDTH    120
+#define CHANNEL_ROW_OFFSET 55
+#define BTN_SIZE           20
 
 enum {
     FILESYSTEM_BTN_ID,
@@ -29,14 +23,14 @@ enum {
 };
 
 struct page_data {
-    char *message;
+    char     *message;
     lv_obj_t *file_system_icon;
     lv_obj_t *play_icon;
     lv_obj_t *program_name_label;
     lv_obj_t *date_time_label;
 
     char *channel_names[NUM_CHANNELS];
-    bool channels_states[NUM_CHANNELS][NUM_TIME_UNITS];
+    bool  channels_states[NUM_CHANNELS][NUM_TIME_UNITS];
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
@@ -57,41 +51,58 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    int32_t offsetx = 100;
+    int32_t offset_play_btn = 50 + 10;
 
-    lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
-    lv_obj_t *lbl1 = lv_label_create(btn1);
-    lv_label_set_text(lbl1, "FILES");
-    lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, 0, 0);
-    view_register_object_default_callback(btn1, FILESYSTEM_BTN_ID);
+    lv_obj_t *folder_widget = view_common_create_folder_widget(lv_scr_act(), LV_ALIGN_TOP_LEFT, 5, 0);
 
-    lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
-    lv_obj_t *lbl2 = lv_label_create(btn2);
-    lv_label_set_text(lbl2, "PLAY");
-    lv_obj_align(btn2, LV_ALIGN_TOP_LEFT, offsetx, 0);
-    view_register_object_default_callback(btn1, PLAY_BTN_ID);
+    lv_obj_t *play_button = view_common_create_play_button(lv_scr_act(), LV_ALIGN_TOP_LEFT, offset_play_btn, 0);
 
     lv_obj_t *program_name_label = lv_label_create(lv_scr_act());
-    lv_obj_set_style_text_align(program_name_label, LV_TEXT_ALIGN_LEFT, 0);
-    lv_obj_align(program_name_label, LV_ALIGN_TOP_LEFT, offsetx * 2, 0);
+    lv_obj_set_style_text_align(program_name_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(program_name_label, LV_ALIGN_TOP_LEFT, 2 * offset_play_btn + 10, 0);
     lv_label_set_text(program_name_label, "Program Name");
     pdata->program_name_label = program_name_label;
 
-    lv_obj_t *date_time_label = lv_label_create(lv_scr_act());
-    lv_obj_set_style_text_align(date_time_label, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_align(date_time_label, LV_ALIGN_TOP_LEFT, offsetx * 3.5, 0);
-    pdata->date_time_label = date_time_label;
+    lv_obj_t *datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
+    lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
 
-    // programs settings
+
+    // channel name label
     lv_obj_t *channel_label = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_align(channel_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(channel_label, LV_ALIGN_TOP_LEFT, 0, CHANNEL_ROW_OFFSET);
-    lv_obj_add_style(channel_label, (lv_style_t *)&style_label, LV_STATE_DEFAULT);
     lv_obj_set_width(channel_label, MAX_LABEL_WIDTH);
     lv_label_set_text(channel_label, "Tooltip CH 1");
 
     // array that shows the 25 buttons showing if the channel is on or off in that time unit
-    
+    lv_obj_t *btn_matrix = lv_btnmatrix_create(lv_scr_act());
+
+
+    static lv_style_t style_bg;
+    lv_style_init(&style_bg);
+    lv_style_set_pad_all(&style_bg, 0);
+    lv_style_set_pad_gap(&style_bg, 0);
+    lv_style_set_clip_corner(&style_bg, true);
+    lv_style_set_radius(&style_bg, LV_RADIUS_CIRCLE);
+    lv_style_set_border_width(&style_bg, 0);
+
+    static lv_style_t style_btn;
+    lv_style_init(&style_btn);
+    lv_style_set_radius(&style_btn, 0);
+    lv_style_set_border_width(&style_btn, 1);
+    lv_style_set_border_opa(&style_btn, LV_OPA_50);
+    lv_style_set_border_color(&style_btn, lv_palette_main(LV_PALETTE_GREY));
+    lv_style_set_border_side(&style_btn, LV_BORDER_SIDE_INTERNAL);
+
+    lv_obj_add_style(btn_matrix, &style_bg, LV_PART_MAIN);
+    lv_obj_add_style(btn_matrix, &style_btn, LV_PART_ITEMS);
+
+    lv_obj_set_size(btn_matrix, BTN_SIZE * NUM_TIME_UNITS, BTN_SIZE);
+    lv_obj_align(btn_matrix, LV_ALIGN_TOP_LEFT, MAX_LABEL_WIDTH + 5, CHANNEL_ROW_OFFSET);
+    static const char *map[] = {"-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-",
+                                "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", ""};
+
+    lv_btnmatrix_set_map(btn_matrix, map);
 
     update_page(model, pdata);
 }
@@ -158,7 +169,7 @@ static void close_page(void *state) {
     lv_obj_clean(lv_scr_act());
 }
 
-const pman_page_t page_program = {
+const pman_page_t page_exec_program = {
     .create        = create_page,
     .destroy       = pman_destroy_all,
     .open          = open_page,
