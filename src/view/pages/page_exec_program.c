@@ -10,9 +10,14 @@
 
 #define NUM_CHANNELS       16
 #define NUM_TIME_UNITS     25
-#define MAX_LABEL_WIDTH    120
-#define CHANNEL_ROW_OFFSET 55
-#define BTN_SIZE           20
+#define MAX_LABEL_WIDTH    100
+#define CHANNEL_ROW_OFFSET 60
+#define BTN_SIZE           23
+#define LABEL_PADDING      3
+#define LABEL_BORDER_WIDTH 1
+#define LABEL_RADIUS       4
+#define NUM_ROWS           15
+
 
 enum {
     FILESYSTEM_BTN_ID,
@@ -35,19 +40,29 @@ struct page_data {
 
 static void update_page(model_t *model, struct page_data *pdata);
 
-#define NUM_ROWS 15
-
 void create_rows(void) {
+    static lv_style_t style_span;
+    lv_style_init(&style_span);
+    lv_style_set_border_width(&style_span, LABEL_BORDER_WIDTH);
+    lv_style_set_border_color(&style_span, lv_color_black());
+    lv_style_set_pad_all(&style_span, LABEL_PADDING);
+    lv_style_set_radius(&style_span, LABEL_RADIUS);
+
     for (int i = 0; i < NUM_ROWS; i++) {
 
-        lv_coord_t row_offset = CHANNEL_ROW_OFFSET + (i * 27);
+        lv_coord_t row_offset = CHANNEL_ROW_OFFSET + (i * (BTN_SIZE + 5));
         // channel name label
-        lv_obj_t *channel_label = lv_label_create(lv_scr_act());
-        lv_obj_set_style_text_align(channel_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_align(channel_label, LV_ALIGN_TOP_LEFT, 0, row_offset);
-        lv_obj_set_width(channel_label, MAX_LABEL_WIDTH);
-        lv_label_set_text(channel_label, "Tooltip CH");
-        lv_label_set_text_fmt(channel_label, "%s %d", "Tooltip CH", i + 1);
+        lv_obj_t *channel_span = lv_spangroup_create(lv_scr_act());
+        lv_obj_add_style(channel_span, &style_span, 0);
+        lv_obj_set_style_text_align(channel_span, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(channel_span, LV_ALIGN_TOP_LEFT, 0, row_offset);
+        lv_obj_set_width(channel_span, MAX_LABEL_WIDTH);
+        
+        lv_span_t *span = lv_spangroup_new_span(channel_span);
+        char channel_name[20];
+        lv_snprintf(channel_name, sizeof(channel_name), "CH %d", i + 1);
+        lv_span_set_text(span, channel_name);
+        lv_spangroup_refr_mode(channel_span);
 
         // array that shows the 25 buttons showing if the channel is on or off in that time unit
         lv_obj_t *btn_matrix = lv_btnmatrix_create(lv_scr_act());
@@ -81,12 +96,17 @@ void create_rows(void) {
         lv_buttonmatrix_set_button_ctrl_all(btn_matrix, LV_BTNMATRIX_CTRL_CHECKABLE);
 
         // label total number of active channels
-        lv_obj_t *total_label = lv_label_create(lv_scr_act());
-        lv_obj_set_style_text_align(total_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_align(total_label, LV_ALIGN_TOP_RIGHT, 0, row_offset);
-        lv_obj_set_width(total_label, MAX_LABEL_WIDTH);
-        lv_label_set_text(total_label, "T:");
-        lv_label_set_text_fmt(total_label, "%s %d", "T:", i + 1);
+        lv_obj_t *total_span = lv_spangroup_create(lv_scr_act());
+        lv_obj_add_style(total_span, &style_span, 0);
+        lv_obj_set_style_text_align(total_span, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(total_span, LV_ALIGN_TOP_RIGHT, 0, row_offset);
+        lv_obj_set_width(total_span, MAX_LABEL_WIDTH);
+        
+        span = lv_spangroup_new_span(total_span);
+        char channel_label[20];
+        lv_snprintf(channel_label, sizeof(channel_label), "T: %d", i + 1);
+        lv_span_set_text(span, channel_label);
+        lv_spangroup_refr_mode(total_span);
     }
 }
 
