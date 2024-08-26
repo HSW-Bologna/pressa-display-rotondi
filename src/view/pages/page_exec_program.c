@@ -73,10 +73,12 @@ void create_rows(void) {
 
         lv_obj_set_size(btn_matrix, BTN_SIZE * NUM_TIME_UNITS, BTN_SIZE);
         lv_obj_align(btn_matrix, LV_ALIGN_TOP_LEFT, MAX_LABEL_WIDTH + 5, row_offset);
-        static const char *map[] = {"-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-",
-                                    "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", ""};
+        static const char *map[] = {" ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ",
+                                    " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", ""};
 
         lv_btnmatrix_set_map(btn_matrix, map);
+
+        lv_buttonmatrix_set_button_ctrl_all(btn_matrix, LV_BTNMATRIX_CTRL_CHECKABLE);
 
         // label total number of active channels
         lv_obj_t *total_label = lv_label_create(lv_scr_act());
