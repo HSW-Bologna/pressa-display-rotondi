@@ -10,7 +10,8 @@
 
 #define NUM_CHANNELS       16
 #define NUM_TIME_UNITS     25
-#define MAX_LABEL_WIDTH    100
+#define MAX_LABEL_WIDTH    110
+#define MIN_LABEL_WIDTH    100
 #define CHANNEL_ROW_OFFSET 60
 #define BTN_SIZE           23
 #define LABEL_PADDING      3
@@ -47,6 +48,7 @@ void create_rows(void) {
     lv_style_set_border_color(&style_span, lv_color_black());
     lv_style_set_pad_all(&style_span, LABEL_PADDING);
     lv_style_set_radius(&style_span, LABEL_RADIUS);
+    lv_style_set_min_width(&style_span, MIN_LABEL_WIDTH);
 
     for (int i = 0; i < NUM_ROWS; i++) {
 
@@ -57,6 +59,7 @@ void create_rows(void) {
         lv_obj_set_style_text_align(channel_span, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_align(channel_span, LV_ALIGN_TOP_LEFT, 0, row_offset);
         lv_obj_set_width(channel_span, MAX_LABEL_WIDTH);
+        
         
         lv_span_t *span = lv_spangroup_new_span(channel_span);
         char channel_name[20];
@@ -95,7 +98,7 @@ void create_rows(void) {
 
         lv_buttonmatrix_set_button_ctrl_all(btn_matrix, LV_BTNMATRIX_CTRL_CHECKABLE);
 
-        // label total number of active channels
+        // label total number of active outputs
         lv_obj_t *total_span = lv_spangroup_create(lv_scr_act());
         lv_obj_add_style(total_span, &style_span, 0);
         lv_obj_set_style_text_align(total_span, LV_TEXT_ALIGN_CENTER, 0);
