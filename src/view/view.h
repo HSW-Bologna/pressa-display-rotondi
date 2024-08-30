@@ -39,6 +39,6 @@ void             view_register_object_default_callback(lv_obj_t *obj, int id);
 void             view_register_object_default_callback_with_number(lv_obj_t *obj, int id, int number);
 void             view_event(view_event_t event);
 
-extern const pman_page_t page_main, page_main_execution, page_main_settings, page_info, page_exec_program, page_main_programs;
+extern const pman_page_t page_home, page_info, page_settings_home, page_programs_home, page_execution_home, page_execution_programs, page_programs_setup;
 
 #endif

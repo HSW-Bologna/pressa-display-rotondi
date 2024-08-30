@@ -8,7 +8,8 @@ view_protocol_t controller_view_protocol = {
 
 
 void controller_init(mut_model_t *model) {
-    view_change_page(&page_main);
+  model_init(model);
+  view_change_page(&page_home);
 }
 
 

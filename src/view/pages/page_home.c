@@ -117,17 +117,17 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
 
                         case EXECUTE_BTN_ID:
                             msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            msg.stack_msg.as.destination.page = (void *)&page_main_execution;
+                            msg.stack_msg.as.destination.page = (void *)&page_execution_home;
                         break;
 
                         case PROGRAMS_BTN_ID:
                             msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            msg.stack_msg.as.destination.page = (void *)&page_main_programs;
+                            msg.stack_msg.as.destination.page = (void *)&page_programs_home;
                         break;
 
                         case SETTINGS_BTN_ID:
                             msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            msg.stack_msg.as.destination.page = (void *)&page_main_settings;
+                            msg.stack_msg.as.destination.page = (void *)&page_settings_home;
                         break;
 
                         case INFO_BTN_ID:
@@ -164,7 +164,7 @@ static void close_page(void *state) {
     lv_obj_clean(lv_scr_act());
 }
 
-const pman_page_t page_main = {
+const pman_page_t page_home = {
     .create        = create_page,
     .destroy       = pman_destroy_all,
     .open          = open_page,

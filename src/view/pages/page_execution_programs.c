@@ -18,6 +18,7 @@
 #define LABEL_BORDER_WIDTH 1
 #define LABEL_RADIUS       4
 #define NUM_ROWS           15
+#define PLAY_BUTTON_OFFSET 60
 
 
 enum {
@@ -40,6 +41,7 @@ struct page_data {
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
+static void paginator_event_handler(lv_event_t * e);
 
 void create_rows(void) {
     static lv_style_t style_span;
@@ -129,21 +131,18 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    int32_t offset_play_btn = 50 + 10;
-
     lv_obj_t *folder_widget = view_common_create_folder_widget(lv_scr_act(), LV_ALIGN_TOP_LEFT, 5, 0);
 
-    lv_obj_t *play_button = view_common_create_play_button(lv_scr_act(), LV_ALIGN_TOP_LEFT, offset_play_btn, 0);
+    lv_obj_t *play_button = view_common_create_play_button(lv_scr_act(), LV_ALIGN_TOP_LEFT, PLAY_BUTTON_OFFSET, 0);
 
     lv_obj_t *program_name_label = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_align(program_name_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(program_name_label, LV_ALIGN_TOP_LEFT, 2 * offset_play_btn + 10, 0);
+    lv_obj_align(program_name_label, LV_ALIGN_TOP_LEFT, 2 * PLAY_BUTTON_OFFSET + 10, 0);
     lv_label_set_text(program_name_label, "Program Name");
     pdata->program_name_label = program_name_label;
 
     lv_obj_t *datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
     lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
-
 
     create_rows();
 
@@ -162,39 +161,50 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
             view_event_t *view_event = event.as.user;
             switch (view_event->tag) {
                 case VIEW_EVENT_TAG_STORAGE_OPERATION_COMPLETED:
+                    LV_LOG_INFO("Storage operation completed");
                     break;
                 default:
+                    LV_LOG_WARN("Unhandled view event: %d", view_event->tag);
                     break;
             }
             break;
         }
 
         case PMAN_EVENT_TAG_LVGL: {
-            lv_obj_t           *target   = lv_event_get_current_target_obj(event.as.lvgl);
+            lv_obj_t *target = lv_event_get_current_target(event.as.lvgl);
+            if (target == NULL) {
+                LV_LOG_ERROR("LVGL event target is NULL");
+                return msg;
+            }
+
             view_object_data_t *obj_data = lv_obj_get_user_data(target);
+            if (obj_data == NULL) {
+                LV_LOG_ERROR("Object user data is NULL");
+                return msg;
+            }
 
             switch (lv_event_get_code(event.as.lvgl)) {
                 case LV_EVENT_CLICKED: {
+                    LV_LOG_INFO("Button clicked, id: %d", obj_data->id);
                     switch (obj_data->id) {
                         case 0: {
                             if (pdata->message == NULL) {
-                                msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_main, "Secondo messaggio");
+                                msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_home, "Secondo messaggio");
                             } else {
                                 msg.stack_msg = PMAN_STACK_MSG_BACK();
                             }
                             break;
                         }
-
                         default:
+                            LV_LOG_WARN("Unhandled button id: %d", obj_data->id);
                             break;
                     }
                     break;
                 }
-
                 default:
+                    LV_LOG_INFO("Unhandled LVGL event: %d", lv_event_get_code(event.as.lvgl));
                     break;
             }
-
             break;
         }
 
@@ -212,7 +222,7 @@ static void close_page(void *state) {
     lv_obj_clean(lv_scr_act());
 }
 
-const pman_page_t page_exec_program = {
+const pman_page_t page_execution_programs = {
     .create        = create_page,
     .destroy       = pman_destroy_all,
     .open          = open_page,

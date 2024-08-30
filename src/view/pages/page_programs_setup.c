@@ -108,7 +108,7 @@ static void close_page(void *state) {
     lv_obj_clean(lv_scr_act());
 }
 
-const pman_page_t page_info = {
+const pman_page_t page_programs_setup = {
     .create        = create_page,
     .destroy       = pman_destroy_all,
     .open          = open_page,

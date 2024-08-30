@@ -74,7 +74,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                     switch (obj_data->id) {
                         case 0: {
                             if (pdata->message == NULL) {
-                                msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_main, "Secondo messaggio");
+                                msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_home, "Secondo messaggio");
                             } else {
                                 msg.stack_msg = PMAN_STACK_MSG_BACK();
                             }
@@ -108,7 +108,7 @@ static void close_page(void *state) {
     lv_obj_clean(lv_scr_act());
 }
 
-const pman_page_t page_main_settings = {
+const pman_page_t page_programs_home = {
     .create        = create_page,
     .destroy       = pman_destroy_all,
     .open          = open_page,
