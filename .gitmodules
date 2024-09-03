@@ -4,3 +4,6 @@
 [submodule "lib/c-page-manager"]
 	path = lib/c-page-manager
 	url = https://github.com/Maldus512/c-page-manager.git
+[submodule "lib/log"]
+	path = lib/log
+	url = https://github.com/rxi/log.c.git
