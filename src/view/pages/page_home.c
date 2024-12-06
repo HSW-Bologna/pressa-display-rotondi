@@ -13,17 +13,13 @@
 
 enum {
     EXECUTE_BTN_ID,
-    PROGRAMS_BTN_ID,
-    SETTINGS_BTN_ID,
+    CONFIG_BTN_ID,
+    TEST_BTN_ID,
     INFO_BTN_ID,
 };
 
 struct page_data {
     char *message;
-    lv_obj_t * btn_e;
-    lv_obj_t * btn_p;
-    lv_obj_t * btn_s;
-    lv_obj_t * btn_i;
 
     lv_obj_t *date_time_label;
 };
@@ -56,23 +52,20 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_center(lbl1);
     lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, offsetx, offsety);
     view_register_object_default_callback(btn1, EXECUTE_BTN_ID);
-    pdata->btn_e = btn1;
 
     lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
     lv_obj_t *lbl2 = lv_label_create(btn2);
-    lv_label_set_text(lbl2, "Program");
+    lv_label_set_text(lbl2, "Config");
     lv_obj_center(lbl2);
     lv_obj_align(btn2, LV_ALIGN_TOP_RIGHT, -offsetx, offsety);
-    view_register_object_default_callback(btn2, PROGRAMS_BTN_ID);
-    pdata->btn_p = btn2;
+    view_register_object_default_callback(btn2, CONFIG_BTN_ID);
 
     lv_obj_t *btn3 = lv_btn_create(lv_scr_act());
     lv_obj_t *lbl3 = lv_label_create(btn3);
-    lv_label_set_text(lbl3, "Settings");
+    lv_label_set_text(lbl3, "Test");
     lv_obj_center(lbl3);
     lv_obj_align(btn3, LV_ALIGN_BOTTOM_LEFT, offsetx, -offsety);
-    view_register_object_default_callback(btn3, SETTINGS_BTN_ID);
-    pdata->btn_s = btn3;
+    view_register_object_default_callback(btn3, TEST_BTN_ID);
 
     lv_obj_t *btn4 = lv_btn_create(lv_scr_act());
     lv_obj_t *lbl4 = lv_label_create(btn4);
@@ -80,10 +73,9 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_center(lbl4);
     lv_obj_align(btn4, LV_ALIGN_BOTTOM_RIGHT, -offsetx, -offsety);
     view_register_object_default_callback(btn4, INFO_BTN_ID);
-    pdata->btn_i = btn4;
 
-    lv_obj_t* datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
-    lv_obj_t* logo_widget = view_common_create_logo_widget(lv_scr_act());
+    lv_obj_t *datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
+    lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
 
     update_page(model, pdata);
 }
@@ -108,32 +100,29 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
         }
 
         case PMAN_EVENT_TAG_LVGL: {
-            lv_obj_t           *target   = lv_event_get_current_target_obj(event.as.lvgl);
-            view_object_data_t *obj_data = lv_obj_get_user_data(target);
+            lv_obj_t *target = lv_event_get_current_target_obj(event.as.lvgl);
 
             switch (lv_event_get_code(event.as.lvgl)) {
                 case LV_EVENT_CLICKED: {
-                    switch (obj_data->id) {
+                    switch (view_get_obj_id(target)) {
 
                         case EXECUTE_BTN_ID:
                             msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
                             msg.stack_msg.as.destination.page = (void *)&page_execution_home;
-                        break;
+                            break;
 
-                        case PROGRAMS_BTN_ID:
-                            msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            msg.stack_msg.as.destination.page = (void *)&page_programs_home;
-                        break;
+                        case CONFIG_BTN_ID:
+                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE(&page_config);
+                            break;
 
-                        case SETTINGS_BTN_ID:
-                            msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            msg.stack_msg.as.destination.page = (void *)&page_settings_home;
-                        break;
+                        case TEST_BTN_ID:
+                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE(&page_test);
+                            break;
 
                         case INFO_BTN_ID:
-                            msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            msg.stack_msg.as.destination.page = (void *)&page_info;
-                        break;
+                            // msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
+                            // msg.stack_msg.as.destination.page = (void *)&page_info;
+                            break;
 
                         default:
                             break;
@@ -155,9 +144,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     return msg;
 }
 
-static void update_page(model_t *model, struct page_data *pdata) {
-
-}
+static void update_page(model_t *model, struct page_data *pdata) {}
 
 static void close_page(void *state) {
     (void)state;

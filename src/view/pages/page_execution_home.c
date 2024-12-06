@@ -16,7 +16,7 @@ enum {
 };
 
 struct page_data {
-    int num_prog;
+    int       num_prog;
     lv_obj_t *btnmx;
 };
 
@@ -37,11 +37,9 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    static const char * map[] = {"1", "6", "\n",
-    "2", "7", "\n",
-    "3", "8", "\n",
-    "4", "9", "\n",
-    "5", "10", "",};
+    static const char *map[] = {
+        "1", "6", "\n", "2", "7", "\n", "3", "8", "\n", "4", "9", "\n", "5", "10", "",
+    };
 
     lv_obj_t *btnmatrix = lv_btnmatrix_create(lv_scr_act());
     lv_btnmatrix_set_map(btnmatrix, map);
@@ -64,10 +62,10 @@ static void open_page(pman_handle_t handle, void *state) {
 
     pdata->btnmx = btnmatrix;
 
-    lv_obj_t* datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
-    lv_obj_t* logo_widget = view_common_create_logo_widget(lv_scr_act());
+    lv_obj_t *datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
+    lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
 
-    lv_obj_t* folder_widget = view_common_create_folder_widget(lv_scr_act(), LV_ALIGN_BOTTOM_LEFT, 5, -5);
+    lv_obj_t *folder_widget = view_common_create_folder_widget(lv_scr_act(), LV_ALIGN_BOTTOM_LEFT, 5, -5);
 
     update_page(model, pdata);
 }
@@ -92,21 +90,21 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
         }
 
         case PMAN_EVENT_TAG_LVGL: {
-            lv_obj_t           *target   = lv_event_get_current_target_obj(event.as.lvgl);
-            view_object_data_t *obj_data = lv_obj_get_user_data(target);
+            lv_obj_t *target = lv_event_get_current_target_obj(event.as.lvgl);
 
             switch (lv_event_get_code(event.as.lvgl)) {
                 case LV_EVENT_CLICKED: {
-                    switch (obj_data->id) {
-                        case PROGRAM_BTNMATRIX_ID: 
-                            int num = lv_btnmatrix_get_selected_btn(target);
+                    switch (view_get_obj_id(target)) {
+                        case PROGRAM_BTNMATRIX_ID: {
+                            int num         = lv_btnmatrix_get_selected_btn(target);
                             pdata->num_prog = num;
                             printf("num prog %d\n", pdata->num_prog);
-                            size_t *extra                      = malloc(sizeof(size_t) * 1);
-                            extra[0]                           = pdata->num_prog;
-                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_execution_programs, extra);
+                            size_t *extra = malloc(sizeof(size_t) * 1);
+                            extra[0]      = pdata->num_prog;
+                            //msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_execution_programs, extra);
                             break;
-                        
+                        }
+
                         default:
                             break;
                     }

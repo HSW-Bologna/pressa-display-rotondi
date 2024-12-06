@@ -1,3 +1,4 @@
+#if 0
 #include <unistd.h>
 #include <archive.h>
 #include <archive_entry.h>
@@ -321,3 +322,4 @@ static int copy_file(const char *to, const char *from) {
 
     return 0;
 }
+#endif

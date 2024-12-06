@@ -7,7 +7,8 @@
 
 void controller_init(mut_model_t *model);
 void controller_manage(mut_model_t *model);
+void controller_sync_minion(model_t *model);
 
-extern view_protocol_t controller_view_protocol;
+
 
 #endif

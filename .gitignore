@@ -1,3 +1,5 @@
+pressa-display-rotondi
+tmp/
 *.o
 app
 .cache

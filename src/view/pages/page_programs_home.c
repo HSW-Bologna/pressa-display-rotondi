@@ -66,12 +66,11 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
         }
 
         case PMAN_EVENT_TAG_LVGL: {
-            lv_obj_t           *target   = lv_event_get_current_target_obj(event.as.lvgl);
-            view_object_data_t *obj_data = lv_obj_get_user_data(target);
+            lv_obj_t *target = lv_event_get_current_target_obj(event.as.lvgl);
 
             switch (lv_event_get_code(event.as.lvgl)) {
                 case LV_EVENT_CLICKED: {
-                    switch (obj_data->id) {
+                    switch (view_get_obj_id(target)) {
                         case 0: {
                             if (pdata->message == NULL) {
                                 msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_home, "Secondo messaggio");

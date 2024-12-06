@@ -1,3 +1,4 @@
+#if 0
 #include <poll.h>
 #include <errno.h>
 #include <string.h>
@@ -16,6 +17,8 @@
 #include "config/app_conf.h"
 #include "../network/wifi.h"
 #include "log.h"
+#include "model.h"
+
 
 #define REQUEST_SOCKET_PATH  "/tmp/.application_disk_request_socket"
 #define RESPONSE_SOCKET_PATH "/tmp/.application_disk_response_socket"
@@ -290,3 +293,4 @@ static void simple_request(int code, disk_op_callback_t cb, disk_op_error_callba
     };
     socketq_send(&requestq, (uint8_t *)&msg);
 }
+#endif

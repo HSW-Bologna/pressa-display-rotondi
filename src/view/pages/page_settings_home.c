@@ -1,3 +1,4 @@
+#if 0
 #include "../view.h"
 #include "lvgl.h"
 #include "model/model.h"
@@ -115,3 +116,4 @@ const pman_page_t page_settings_home = {
     .close         = close_page,
     .process_event = page_event,
 };
+#endif

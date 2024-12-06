@@ -10,33 +10,68 @@
 #include "controller/network/wifi.h"
 #include "config/app_conf.h"
 #include "../../lib/log/src/log.h"
+#include "gui.h"
+#include "minion.h"
+#include "services/timestamp.h"
 
-view_protocol_t controller_view_protocol = {
-    
-};
 
 static void load_programs_callback(model_t *pmodel, void *data, void *arg);
 
 
 void controller_init(mut_model_t *model) {
-  wifi_init();
-  disk_op_init();
+    (void)model;
 
+    wifi_init();
+    minion_init();
+
+#if 0
+  disk_op_init();
   disk_op_load_programs(load_programs_callback, NULL, NULL);
     while (disk_op_manage_response(pmodel) == 0) {
         usleep(1000);
     }
+#endif
 
-  view_change_page(&page_home);
+    view_change_page(&page_home);
 }
 
 
 void controller_manage(mut_model_t *model) {
-  (void)model;
-  lv_timer_handler();
+    controller_gui_manage(model);
+
+    {
+        minion_response_t response = {0};
+        if (minion_get_response(&response)) {
+            switch (response.tag) {
+                case MINION_RESPONSE_TAG_ERROR: {
+                    log_error("Error");
+                    break;
+                }
+
+                case MINION_RESPONSE_TAG_SYNC: {
+                    model->run.minion.read.firmware_version_major = response.as.sync.firmware_version_major;
+                    model->run.minion.read.firmware_version_minor = response.as.sync.firmware_version_minor;
+                    model->run.minion.read.firmware_version_patch = response.as.sync.firmware_version_patch;
+                    model->run.minion.read.inputs                 = response.as.sync.inputs;
+                    model->run.minion.read.v0_10_adc              = response.as.sync.v0_10_adc;
+                    model->run.minion.read.ma4_20_adc             = response.as.sync.ma4_20_adc;
+                    break;
+                }
+            }
+        }
+    }
+
+    {
+        static timestamp_t ts = 0;
+        if (timestamp_is_expired(ts, 400)) {
+            controller_sync_minion(model);
+            ts = timestamp_get();
+        }
+    }
 }
 
 
+#if 0
 static void load_programs_callback(model_t *pmodel, void *data, void *arg) {
     (void)arg;
     storage_program_list_t *list = data;
@@ -52,4 +87,10 @@ static void load_programs_callback(model_t *pmodel, void *data, void *arg) {
         //     parciclo_init(pmodel, i, j);
         // }
     }
+}
+#endif
+
+
+void controller_sync_minion(model_t *model) {
+    minion_sync(model);
 }

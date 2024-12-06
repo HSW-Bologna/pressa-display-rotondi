@@ -1,3 +1,4 @@
+#if 0
 #include "../view.h"
 #include "lvgl.h"
 #include "model/model.h"
@@ -10,10 +11,11 @@
 
 #define NUM_CHANNELS       16
 #define NUM_TIME_UNITS     25
-#define MAX_LABEL_WIDTH    110
+#define MAX_LABEL_WIDTH    64
 #define MIN_LABEL_WIDTH    100
-#define CHANNEL_ROW_OFFSET 60
-#define BTN_SIZE           23
+#define CHANNEL_ROW_OFFSET 2
+#define BTN_SIZE           26
+#define BTN_HEIGHT         29
 #define LABEL_PADDING      3
 #define LABEL_BORDER_WIDTH 1
 #define LABEL_RADIUS       4
@@ -41,7 +43,7 @@ struct page_data {
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
-static void paginator_event_handler(lv_event_t * e);
+static void paginator_event_handler(lv_event_t *e);
 
 void create_rows(void) {
     static lv_style_t style_span;
@@ -53,18 +55,17 @@ void create_rows(void) {
     lv_style_set_min_width(&style_span, MIN_LABEL_WIDTH);
 
     for (int i = 0; i < NUM_ROWS; i++) {
-
-        lv_coord_t row_offset = CHANNEL_ROW_OFFSET + (i * (BTN_SIZE + 5));
+        lv_coord_t row_offset = CHANNEL_ROW_OFFSET + (i * (BTN_HEIGHT + 2));
         // channel name label
         lv_obj_t *channel_span = lv_spangroup_create(lv_scr_act());
         lv_obj_add_style(channel_span, &style_span, 0);
         lv_obj_set_style_text_align(channel_span, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_align(channel_span, LV_ALIGN_TOP_LEFT, 0, row_offset);
         lv_obj_set_width(channel_span, MAX_LABEL_WIDTH);
-        
-        
+
+
         lv_span_t *span = lv_spangroup_new_span(channel_span);
-        char channel_name[20];
+        char       channel_name[20];
         lv_snprintf(channel_name, sizeof(channel_name), "CH %d", i + 1);
         lv_span_set_text(span, channel_name);
         lv_spangroup_refr_mode(channel_span);
@@ -91,7 +92,7 @@ void create_rows(void) {
         lv_obj_add_style(btn_matrix, &style_bg, LV_PART_MAIN);
         lv_obj_add_style(btn_matrix, &style_btn, LV_PART_ITEMS);
 
-        lv_obj_set_size(btn_matrix, BTN_SIZE * NUM_TIME_UNITS, BTN_SIZE);
+        lv_obj_set_size(btn_matrix, BTN_SIZE * NUM_TIME_UNITS, BTN_HEIGHT);
         lv_obj_align(btn_matrix, LV_ALIGN_TOP_LEFT, MAX_LABEL_WIDTH + 5, row_offset);
         static const char *map[] = {" ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ",
                                     " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", ""};
@@ -106,7 +107,7 @@ void create_rows(void) {
         lv_obj_set_style_text_align(total_span, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_align(total_span, LV_ALIGN_TOP_RIGHT, 0, row_offset);
         lv_obj_set_width(total_span, MAX_LABEL_WIDTH);
-        
+
         span = lv_spangroup_new_span(total_span);
         char channel_label[20];
         lv_snprintf(channel_label, sizeof(channel_label), "T: %d", i + 1);
@@ -131,8 +132,8 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
+    /*
     lv_obj_t *folder_widget = view_common_create_folder_widget(lv_scr_act(), LV_ALIGN_TOP_LEFT, 5, 0);
-
     lv_obj_t *play_button = view_common_create_play_button(lv_scr_act(), LV_ALIGN_TOP_LEFT, PLAY_BUTTON_OFFSET, 0);
 
     lv_obj_t *program_name_label = lv_label_create(lv_scr_act());
@@ -143,6 +144,7 @@ static void open_page(pman_handle_t handle, void *state) {
 
     lv_obj_t *datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
     lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
+    */
 
     create_rows();
 
@@ -229,3 +231,4 @@ const pman_page_t page_execution_programs = {
     .close         = close_page,
     .process_event = page_event,
 };
+#endif

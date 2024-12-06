@@ -17,7 +17,7 @@ def PhonyTargets(
 
 
 SIMULATED_PROGRAM = "app"
-TARGET_PROGRAM = "pressa-display-rotondi.bin"
+TARGET_PROGRAM = "pressa-display-rotondi"
 LIBS = "lib"
 MAIN = "src"
 LVGL = f"{LIBS}/lvgl"
@@ -34,7 +34,7 @@ CFLAGS = [
 ]
 
 CPPPATH = [
-    f"#{MAIN}", f"#{MAIN}/config", f"#{LVGL}"
+    f"#{MAIN}", f"#{MAIN}/config", f"#{LVGL}", f"#{LIBS}/log/src", f"#{LIBS}/liblightmodbus/include",
 ]
 
 
@@ -47,15 +47,20 @@ def get_target(env, name, suffix="", dependencies=[]):
     sources = [File(filename)
                for filename in Path(f"{MAIN}/").rglob('*.c')]
     sources += [ File(filename) for filename in Path(f'{LVGL}/src').rglob('*.c') ]
+    sources += [ File(f"#{LIBS}/log/src/log.c") ]
 
     pman_env = env
     (lv_pman, include) = SConscript( f'{LIBS}/c-page-manager/SConscript', variant_dir=f"build-{name}/lv_pman", exports=['pman_env'])
     env['CPPPATH'] += [include]
 
+    c_watcher_env = env
+    (watcher, include) = SConscript( f'{LIBS}/c-watcher/SConscript', variant_dir=f"build-{name}/c-watcher", exports=['c_watcher_env'])
+    env['CPPPATH'] += [include]
+
     objects = [env.Object(
         f"{rchop(x.get_abspath(), '.c')}{suffix}", x) for x in sources]
 
-    target = env.Program(name, objects + [lv_pman])
+    target = env.Program(name, objects + [lv_pman, watcher])
     env.Depends(target, dependencies)
     env.Clean(target, f"build-{name}")
     return target
@@ -79,7 +84,7 @@ def main():
 
     target_env = simulated_env.Clone(
         LIBS=["-lpthread", "-larchive"], CC="~/Mount/Data/Projects/new_buildroot/buildrpi3/output/host/bin/aarch64-buildroot-linux-uclibc-gcc",
-        CCFLAGS=CFLAGS + ["-DUSE_FBDEV=1", "-DUSE_EVDEV=1"])
+        CCFLAGS=CFLAGS + ["-DLV_USE_LINUX_FBDEV=1", "-DLV_USE_EVDEV=1"])
 
     simulated_prog = get_target(
         simulated_env, SIMULATED_PROGRAM, dependencies=[])
@@ -91,26 +96,28 @@ def main():
 
     ip_addr = ARGUMENTS.get("ip", "")
     compatibility_options = "-o StrictHostKeyChecking=no -o PubkeyAcceptedAlgorithms=+ssh-rsa"
+    eval = "eval `ssh-agent` && ssh-add"
+
     PhonyTargets(
         'kill-remote',
-        f"ssh {compatibility_options} root@{ip_addr} 'killall gdbserver; killall app; killall sh'; true", None)
+        f"{eval} && ssh {compatibility_options} root@{ip_addr} 'killall gdbserver; killall app; killall sh'; true", None)
     PhonyTargets(
-        "scp", f"scp -O {compatibility_options} DS2021 root@{ip_addr}:/tmp/app", [target_prog, "kill-remote"])
+        "scp", f"{eval} && scp -O {compatibility_options} {TARGET_PROGRAM} root@{ip_addr}:/tmp/app", [target_prog, "kill-remote"])
     PhonyTargets(
-        'ssh', f"ssh {compatibility_options} root@{ip_addr}", [])
+        'ssh', f"{eval} && ssh {compatibility_options} root@{ip_addr}", [])
     PhonyTargets(
         'run-remote',
-        f"ssh {compatibility_options} root@{ip_addr} /tmp/app",
+        f"{eval} && ssh {compatibility_options} root@{ip_addr} /tmp/app",
         'scp')
     PhonyTargets(
         "update-remote",
-        f'ssh {compatibility_options} root@{ip_addr} "mount -o rw,remount / && cp /tmp/app /root/app && sync && reboot && exit"', "scp")
+        f'{eval} && ssh {compatibility_options} root@{ip_addr} "mount -o rw,remount / && cp /tmp/app /root/app && sync && reboot && exit"', "scp")
     PhonyTargets(
         "debug",
-        f"ssh {compatibility_options} root@{ip_addr} gdbserver localhost:1235 /tmp/app", "scp")
+        f"{eval} && ssh {compatibility_options} root@{ip_addr} gdbserver localhost:1235 /tmp/app", "scp")
     PhonyTargets(
         "run-remote",
-        f"ssh {compatibility_options} root@{ip_addr} /tmp/app",
+        f"{eval} && ssh {compatibility_options} root@{ip_addr} /tmp/app",
         "scp")
 
     Depends(simulated_prog, compileDB)

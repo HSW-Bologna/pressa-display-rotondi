@@ -139,18 +139,6 @@ int init_system_time_from_rtc(void) {
 }
 
 
-/*Set in lv_conf.h as `LV_TICK_CUSTOM_SYS_TIME_EXPR`*/
-unsigned long get_millis(void) {
-    unsigned long   now_ms;
-    struct timespec ts;
-
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    now_ms = ts.tv_sec * 1000UL + ts.tv_nsec / 1000000UL;
-
-    return now_ms;
-}
-
-
 time_t mktime_autodst(struct tm *tm) {
     // struct tm autodst = *tm;
     // mktime(&autodst);
