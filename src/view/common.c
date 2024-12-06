@@ -95,19 +95,21 @@ lv_obj_t *view_common_time_bar_create(lv_obj_t *parent, uint16_t id) {
 
     lv_obj_set_style_pad_column(cont, 1, LV_STATE_DEFAULT);
     lv_obj_set_style_pad_row(cont, 0, LV_STATE_DEFAULT);
-    lv_obj_set_width(cont, LV_PCT(100));
+    lv_obj_set_size(cont, PROGRAM_NUM_TIME_UNITS * 41, 40);
 
     lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
 
-    for (uint16_t i = 0; i < NUM_TIME_UNITS; i++) {
+    for (uint16_t i = 0; i < PROGRAM_NUM_TIME_UNITS; i++) {
         lv_obj_t *unit = lv_button_create(cont);
+        lv_obj_remove_flag(unit, LV_OBJ_FLAG_SNAPPABLE);
+        lv_obj_remove_flag(unit, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
         lv_obj_add_style(unit, &style_time_unit, LV_STATE_DEFAULT);
         lv_obj_set_style_border_post(unit, 0, LV_STATE_DEFAULT);
         lv_obj_set_style_shadow_opa(unit, LV_OPA_TRANSP, LV_STATE_DEFAULT);
-        lv_obj_set_height(unit, LV_PCT(100));
+        lv_obj_set_height(unit, 40);
         lv_obj_set_flex_grow(unit, 1);
         view_register_object_default_callback_with_number(unit, id, i);
     }

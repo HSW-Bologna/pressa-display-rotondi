@@ -8,10 +8,12 @@
 void model_init(mut_model_t *model) {
     assert(model != NULL);
 
+    memset(model, 0, sizeof(mut_model_t));
+
     for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
         snprintf(model->config.programs[i].name, sizeof(model->config.programs[i].name), "Program %i", i + 1);
     }
-    for (uint16_t i = 0; i < NUM_CHANNELS; i++) {
+    for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
         snprintf(model->config.channel_names[i], sizeof(model->config.channel_names[i]), "CH %i", i + 1);
     }
 }
@@ -31,13 +33,13 @@ const char *model_get_program_name(model_t *model, size_t num) {
 
 
 program_t *model_get_program_mut(mut_model_t *model, size_t num) {
-    assert(model != NULL);
+    assert(model != NULL && num < NUM_PROGRAMS);
     return &model->config.programs[num];
 }
 
 
 const program_t *model_get_program(model_t *model, size_t num) {
-    assert(model != NULL);
+    assert(model != NULL && num < NUM_PROGRAMS);
     return &model->config.programs[num];
 }
 

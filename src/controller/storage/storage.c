@@ -13,7 +13,7 @@
 #include "model/model.h"
 #include "storage.h"
 #include "log.h"
-#include "config/app_conf.h"
+#include "config/app_config.h"
 
 #define DIR_CHECK(x)                                                                                                   \
     {                                                                                                                  \

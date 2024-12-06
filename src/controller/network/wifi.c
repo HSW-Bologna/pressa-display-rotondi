@@ -103,7 +103,7 @@ wifi_status_t wifi_status(char *ssid) {
                 return WIFI_CONNECTING;
             }
         } else if (strncmp(newline, "ssid=", 5) == 0) {
-            strncpy_until(ssid, NAME_SIZE, &newline[5], '\n');
+            strncpy_until(ssid, 33, &newline[5], '\n');
         }
         newline = strtok(NULL, "\n");
     }
@@ -170,7 +170,7 @@ int wifi_read_scan(wifi_network_t **networks) {
         if (!(tab = strtok_r(step2, "\t", &step2)))     // SSID
             continue;
 
-        strncpy_until(ptr[valid_count].ssid, NAME_SIZE, tab, '\n');
+        strncpy_until(ptr[valid_count].ssid, sizeof(ptr[valid_count].ssid), tab, '\n');
         valid_count++;
     }
 

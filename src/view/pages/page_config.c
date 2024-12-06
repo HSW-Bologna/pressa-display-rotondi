@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "../common.h"
+#include "log.h"
 
 
 enum {
@@ -77,6 +78,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     pman_msg_t msg = PMAN_MSG_NULL;
 
     struct page_data *pdata = state;
+    (void)pdata;
 
     mut_model_t *model = view_get_model(handle);
 
@@ -103,6 +105,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             break;
 
                         case BTN_PROGRAM_ID:
+                            log_info("Number %i", view_get_obj_number(target));
                             msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(
                                 &page_program, (void *)(uintptr_t)view_get_obj_number(target));
                             break;
@@ -127,7 +130,12 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     return msg;
 }
 
-static void update_page(model_t *model, struct page_data *pdata) {}
+
+static void update_page(model_t *model, struct page_data *pdata) {
+    (void)model;
+    (void)pdata;
+}
+
 
 static void close_page(void *state) {
     (void)state;

@@ -5,15 +5,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "program.h"
 
 
-#define NUM_PROGRAMS   20
-#define NUM_CHANNELS   16
-#define NUM_INPUTS     12
-#define NUM_OUTPUTS    16
-#define NUM_TIME_UNITS 25
-#define NAME_LENGTH    20
-#define NAME_SIZE      (NAME_LENGTH + 1)
+#define NUM_PROGRAMS 20
+#define NUM_INPUTS   12
+#define NUM_OUTPUTS  16
 
 
 typedef enum {
@@ -24,25 +21,16 @@ typedef enum {
 } wifi_status_t;
 
 
-typedef char name_t[NAME_SIZE];
-
 typedef struct {
     int  signal;
-    char ssid[NAME_SIZE];
+    char ssid[33];
 } wifi_network_t;
-
-
-
-typedef struct {
-    name_t  name;
-    uint8_t channels[NUM_CHANNELS][NUM_TIME_UNITS];
-} program_t;
 
 
 // collection of all models
 typedef struct {
     struct {
-        name_t    channel_names[NUM_CHANNELS];
+        name_t    channel_names[PROGRAM_NUM_CHANNELS];
         program_t programs[NUM_PROGRAMS];
     } config;
 

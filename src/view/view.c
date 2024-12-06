@@ -32,7 +32,7 @@ void view_init(model_t *model, view_protocol_t protocol) {
     lv_indev_t *touch_indev = lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
 #endif
 
-    pman_init(&state.page_manager, (void *)model, touch_indev, NULL, NULL);
+    pman_init(&state.page_manager, (void *)model, touch_indev, NULL, NULL, NULL);
 }
 
 void view_change_page(const pman_page_t *page) {
@@ -72,6 +72,7 @@ void view_register_object_default_callback_with_number(lv_obj_t *obj, int id, in
     pman_register_obj_event(&state.page_manager, obj, LV_EVENT_LONG_PRESSED_REPEAT);
     pman_register_obj_event(&state.page_manager, obj, LV_EVENT_CANCEL);
     pman_register_obj_event(&state.page_manager, obj, LV_EVENT_READY);
+    pman_register_obj_event(&state.page_manager, obj, LV_EVENT_SCROLL);
 }
 
 

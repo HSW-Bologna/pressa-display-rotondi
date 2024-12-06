@@ -8,8 +8,8 @@
 #include "storage/disk_op.h"
 #include "storage/storage.h"
 #include "controller/network/wifi.h"
-#include "config/app_conf.h"
-#include "../../lib/log/src/log.h"
+#include "config/app_config.h"
+#include "log.h"
 #include "gui.h"
 #include "minion.h"
 #include "services/timestamp.h"
@@ -64,7 +64,7 @@ void controller_manage(mut_model_t *model) {
     {
         static timestamp_t ts = 0;
         if (timestamp_is_expired(ts, 400)) {
-            controller_sync_minion(model);
+            //controller_sync_minion(model);
             ts = timestamp_get();
         }
     }

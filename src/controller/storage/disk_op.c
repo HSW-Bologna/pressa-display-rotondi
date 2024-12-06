@@ -11,13 +11,13 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
-#include "utils/socketq.h"
+#include "services/socketq.h"
 #include "disk_op.h"
 #include "storage.h"
-#include "config/app_conf.h"
+#include "config/app_config.h"
 #include "../network/wifi.h"
 #include "log.h"
-#include "model.h"
+#include "model/model.h"
 
 
 #define REQUEST_SOCKET_PATH  "/tmp/.application_disk_request_socket"
@@ -37,12 +37,11 @@ typedef struct {
     size_t  num;
 } disk_op_name_list_t;
 
+
 typedef enum {
     DISK_OP_MESSAGE_CODE_LOAD_PROGRAMS,
-    DISK_OP_MESSAGE_CODE_SAVE_PROGRAM_INDEX,
     DISK_OP_MESSAGE_CODE_SAVE_PROGRAM,
     DISK_OP_MESSAGE_CODE_SAVE_WIFI_CONFIG,
-    DISK_OP_MESSAGE_CODE_READ_FILE,
     DISK_OP_MESSAGE_CODE_FIRMWARE_UPDATE,
 } disk_op_message_code_t;
 
@@ -62,7 +61,7 @@ static void  simple_request(int code, disk_op_callback_t cb, disk_op_error_callb
 static socketq_t       requestq;
 static socketq_t       responseq;
 static pthread_mutex_t sem;
-static int             drive_mounted      = 0;
+static int             drive_mounted = 0;
 
 
 void disk_op_init(void) {
@@ -93,26 +92,6 @@ void disk_op_save_program(program_t *p, disk_op_callback_t cb, disk_op_error_cal
 }
 
 
-void disk_op_save_program_index(model_t *pmodel, disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    disk_op_name_list_t *list  = (malloc(sizeof(disk_op_name_list_t)));
-    name_t              *names = malloc(sizeof(name_t) * model_get_num_programs(pmodel));
-    assert(names != NULL);
-    for (size_t i = 0; i < model_get_num_programs(pmodel); i++) {
-        memcpy(names[i], model_get_program(pmodel, i)->filename, sizeof(name_t));
-    }
-    list->names           = names;
-    list->num             = model_get_num_programs(pmodel);
-    disk_op_message_t msg = {
-        .code           = DISK_OP_MESSAGE_CODE_SAVE_PROGRAM_INDEX,
-        .data           = list,
-        .callback       = cb,
-        .error_callback = errcb,
-        .arg            = arg,
-    };
-    socketq_send(&requestq, (uint8_t *)&msg);
-}
-
-
 void disk_op_load_programs(disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
     simple_request(DISK_OP_MESSAGE_CODE_LOAD_PROGRAMS, cb, errcb, arg);
 }
@@ -125,23 +104,6 @@ void disk_op_save_wifi_config(disk_op_callback_t cb, disk_op_error_callback_t er
 
 void disk_op_firmware_update(disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
     simple_request(DISK_OP_MESSAGE_CODE_FIRMWARE_UPDATE, cb, errcb, arg);
-}
-
-
-void disk_op_read_file(char *name, disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    size_t len       = strlen(name) + 1;
-    char  *file_name = malloc(len);
-    memset(file_name, 0, len);
-    strcpy(file_name, name);
-    assert(file_name != NULL);
-    disk_op_message_t msg = {
-        .code           = DISK_OP_MESSAGE_CODE_READ_FILE,
-        .data           = file_name,
-        .callback       = cb,
-        .error_callback = errcb,
-        .arg            = arg,
-    };
-    socketq_send(&requestq, (uint8_t *)&msg);
 }
 
 
@@ -182,8 +144,7 @@ int disk_op_is_firmware_present(void) {
 static void *disk_interaction_task(void *args) {
     unsigned int mount_attempts = 0;
 
-    storage_create_dir(DEFAULT_PROGRAMS_PATH);
-    storage_create_dir(DEFAULT_PARAMS_PATH);
+    storage_create_dir(APP_CONFIG_DATA_PATH);
 
     for (;;) {
         disk_op_message_t msg;
@@ -197,25 +158,8 @@ static void *disk_interaction_task(void *args) {
             };
 
             switch (msg.code) {
-
-                case DISK_OP_MESSAGE_CODE_READ_FILE: {
-                    response.data          = storage_read_file(msg.data);
-                    response.transfer_data = 1;
-                    free(msg.data);
-                    socketq_send(&responseq, (uint8_t *)&response);
-                    break;
-                }
-
-                case DISK_OP_MESSAGE_CODE_SAVE_PROGRAM_INDEX: {
-                    disk_op_name_list_t *list = msg.data;
-                    response.error = storage_update_program_index(DEFAULT_PROGRAMS_PATH, list->names, list->num);
-                    free(list);
-                    socketq_send(&responseq, (uint8_t *)&response);
-                    break;
-                }
-
                 case DISK_OP_MESSAGE_CODE_SAVE_PROGRAM:
-                    response.error = storage_update_program(DEFAULT_PROGRAMS_PATH, msg.data);
+                    response.error = storage_update_program(APP_CONFIG_DATA_PATH, msg.data);
                     free(msg.data);
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
@@ -225,7 +169,7 @@ static void *disk_interaction_task(void *args) {
                     if (response.data == NULL) {
                         response.error = 1;
                     } else {
-                        response.error = storage_load_programs(DEFAULT_PROGRAMS_PATH, response.data);
+                        response.error = storage_load_programs(APP_CONFIG_DATA_PATH, response.data);
                     }
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
@@ -242,8 +186,8 @@ static void *disk_interaction_task(void *args) {
             }
         }
 
-        if (storage_get_file_size(LOGFILE) > MAX_LOGFILE_SIZE) {
-            storage_clear_file(LOGFILE);
+        if (storage_get_file_size(APP_CONFIG_LOGFILE) > MAX_LOGFILE_SIZE) {
+            storage_clear_file(APP_CONFIG_LOGFILE);
         }
 
         int drive_already_mounted = disk_op_is_drive_mounted();
@@ -262,8 +206,8 @@ static void *disk_interaction_task(void *args) {
                 log_info("Rilevata una chiavetta");
                 if (storage_mount_drive() == 0) {
                     pthread_mutex_lock(&sem);
-                    drive_mounted      = 1;
-                    //drive_machines_num = storage_list_saved_machines(DRIVE_MOUNT_PATH, &drive_machines);
+                    drive_mounted = 1;
+                    // drive_machines_num = storage_list_saved_machines(DRIVE_MOUNT_PATH, &drive_machines);
                     pthread_mutex_unlock(&sem);
                     // model->system.f_update_ready  = is_firmware_present();
                     log_info("Chiavetta montata con successo");

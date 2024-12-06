@@ -8,8 +8,8 @@
 #include "controller/controller.h"
 #include "controller/gui.h"
 #include "services/system_time.h"
-#include "config/app_conf.h"
-#include "../lib/log/src/log.h"
+#include "config/app_config.h"
+#include "log.h"
 #include "bsp/rs232.h"
 
 
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 
     bsp_rs232_init();
 
-    log_set_level(CONFIG_LOG_LEVEL);
+    log_set_level(APP_CONFIG_LOG_LEVEL);
     log_file_init();
 
     log_info("App version %s, %s", SOFTWARE_VERSION, SOFTWARE_BUILD_DATE);
@@ -50,7 +50,7 @@ static void log_file_init(void) {
     log_set_lock(log_lock);
     log_set_udata(&lock);
 
-    log_set_fp(fopen(LOGFILE, "a+"));
+    log_set_fp(fopen(APP_CONFIG_LOGFILE, "a+"));
     log_set_fileinfo(0);
 }
 
