@@ -29,6 +29,10 @@ typedef struct {
 typedef struct {
     name_t    channel_names[PROGRAM_NUM_CHANNELS];
     program_t programs[NUM_PROGRAMS];
+    uint16_t  headgap_offset_up;
+    uint16_t  headgap_offset_down;
+
+    program_digital_channel_schedule_t digital_channels[PROGRAM_NUM_DIGITAL_CHANNELS];
 } configuration_t;
 
 // collection of all models
@@ -59,6 +63,7 @@ typedef struct {
                 uint16_t inputs;
                 uint16_t ma4_20_adc;
                 uint16_t v0_10_adc;
+                uint16_t elapsed_milliseconds;
             } read;
 
             struct {
@@ -67,6 +72,8 @@ typedef struct {
                 uint16_t pwm;
             } write;
         } minion;
+
+        int16_t current_program_index;
     } run;
 } mut_model_t;
 
@@ -81,5 +88,7 @@ program_t       *model_get_program_mut(mut_model_t *model, size_t num);
 void             model_clear_test_outputs(mut_model_t *model);
 void             model_set_test_output(mut_model_t *model, uint16_t output_index);
 void             model_check_parameters(mut_model_t *model);
+uint8_t          model_is_program_ready(model_t *model);
+const program_t *model_get_current_program(model_t *model);
 
 #endif

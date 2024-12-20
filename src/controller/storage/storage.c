@@ -17,6 +17,7 @@
 #include "services/serializer.h"
 
 
+#define PARAMETERS_SERIALIZED_SIZE 4
 #define PROGRAM_SERIALIZED_SIZE                                                                                        \
     (PROGRAM_NAME_SIZE + sizeof(program_digital_channel_schedule_t) * PROGRAM_NUM_DIGITAL_CHANNELS +                   \
      PROGRAM_NUM_TIME_UNITS * 2 + 2 + PROGRAM_DAC_LEVELS + PROGRAM_SENSOR_LEVELS)
@@ -64,6 +65,18 @@ int storage_load_configuration(const char *path, configuration_t *config) {
             return -1;
         }
 
+        uint8_t buffer[PARAMETERS_SERIALIZED_SIZE + 1] = {0};
+        if (read_exactly(buffer, sizeof(buffer), fp) < 0) {
+            log_error("Failed to read file %s: %s", path, strerror(errno));
+            fclose(fp);
+            return -1;
+        }
+
+        uint16_t parameters_buffer_index = 1;     // Skip the version
+        parameters_buffer_index += deserialize_uint16_be(&config->headgap_offset_up, &buffer[parameters_buffer_index]);
+        parameters_buffer_index +=
+            deserialize_uint16_be(&config->headgap_offset_down, &buffer[parameters_buffer_index]);
+
         for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
             if (read_exactly((uint8_t *)config->channel_names[i], sizeof(name_t), fp) < 0) {
                 log_error("Failed to read file %s: %s", path, strerror(errno));
@@ -74,7 +87,7 @@ int storage_load_configuration(const char *path, configuration_t *config) {
 
         for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
             uint8_t  buffer[PROGRAM_SERIALIZED_SIZE] = {0};
-            uint16_t buffer_index                    = 1;     // Skip the version
+            uint16_t programs_buffer_index           = 0;
 
             if (read_exactly(buffer, sizeof(buffer), fp) < 0) {
                 log_error("Failed to read file %s: %s", path, strerror(errno));
@@ -83,37 +96,39 @@ int storage_load_configuration(const char *path, configuration_t *config) {
             }
 
             program_t *program = &config->programs[i];
-            memcpy(program->name, &buffer[buffer_index], PROGRAM_NAME_SIZE);
+            memcpy(program->name, &buffer[programs_buffer_index], PROGRAM_NAME_SIZE);
             program->name[PROGRAM_NAME_LENGTH] = '\0';
-            buffer_index += PROGRAM_NAME_SIZE;
+            programs_buffer_index += PROGRAM_NAME_SIZE;
 
             for (uint16_t j = 0; j < PROGRAM_NUM_DIGITAL_CHANNELS; j++) {
-                buffer_index += deserialize_uint32_be(&program->digital_channels[j], &buffer[buffer_index]);
+                programs_buffer_index +=
+                    deserialize_uint32_be(&program->digital_channels[j], &buffer[programs_buffer_index]);
             }
 
             for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
                 uint8_t value = 0;
-                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
                 program->dac_channel[j] = value;
             }
 
             for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
                 uint8_t value = 0;
-                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
                 program->sensor_channel[j] = value;
             }
 
-            buffer_index += deserialize_uint16_be(&program->time_unit_decisecs, &buffer[buffer_index]);
+            programs_buffer_index +=
+                deserialize_uint16_be(&program->time_unit_decisecs, &buffer[programs_buffer_index]);
 
             for (uint16_t j = 0; j < PROGRAM_DAC_LEVELS; j++) {
                 uint8_t value = 0;
-                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
                 program->dac_levels[j] = value;
             }
 
             for (uint16_t j = 0; j < PROGRAM_SENSOR_LEVELS; j++) {
                 uint8_t value = 0;
-                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
                 program->sensor_levels[j] = value;
             }
         }
@@ -135,6 +150,18 @@ int storage_save_configuration(const char *path, const configuration_t *config) 
         return -1;
     }
 
+    uint8_t buffer[PARAMETERS_SERIALIZED_SIZE + 1] = {0};
+    buffer[0]                                      = STORAGE_VERSION;
+    uint16_t parameters_buffer_index               = 1;     // Skip the version
+    parameters_buffer_index += serialize_uint16_be(&buffer[parameters_buffer_index], config->headgap_offset_up);
+    parameters_buffer_index += serialize_uint16_be(&buffer[parameters_buffer_index], config->headgap_offset_down);
+
+    if (write_exactly(buffer, sizeof(buffer), fp) < 0) {
+        log_error("Failed to write file %s: %s", path, strerror(errno));
+        fclose(fp);
+        return -1;
+    }
+
     for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
         if (write_exactly((const uint8_t *)config->channel_names[i], sizeof(name_t), fp) < 0) {
             log_error("Failed to write file %s: %s", path, strerror(errno));
@@ -144,37 +171,36 @@ int storage_save_configuration(const char *path, const configuration_t *config) 
     }
 
     for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
-        uint8_t buffer[PROGRAM_SERIALIZED_SIZE] = {0};
-        buffer[0]                               = STORAGE_VERSION;
-        uint16_t buffer_index                   = 1;
+        uint16_t programs_buffer_index           = 0;
+        uint8_t  buffer[PROGRAM_SERIALIZED_SIZE] = {0};
 
         const program_t *program = &config->programs[i];
-        memcpy(&buffer[buffer_index], program->name, PROGRAM_NAME_SIZE);
-        buffer_index += PROGRAM_NAME_SIZE;
+        memcpy(&buffer[programs_buffer_index], program->name, PROGRAM_NAME_SIZE);
+        programs_buffer_index += PROGRAM_NAME_SIZE;
 
         for (uint16_t j = 0; j < PROGRAM_NUM_DIGITAL_CHANNELS; j++) {
-            buffer_index += serialize_uint32_be(&buffer[buffer_index], program->digital_channels[j]);
+            programs_buffer_index += serialize_uint32_be(&buffer[programs_buffer_index], program->digital_channels[j]);
         }
 
         for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
             if (i == 0) {
                 log_info("%i %i", j, program->dac_channel[j]);
             }
-            buffer_index += serialize_uint8(&buffer[buffer_index], program->dac_channel[j]);
+            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->dac_channel[j]);
         }
 
         for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
-            buffer_index += serialize_uint8(&buffer[buffer_index], program->sensor_channel[j]);
+            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->sensor_channel[j]);
         }
 
-        buffer_index += serialize_uint16_be(&buffer[buffer_index], program->time_unit_decisecs);
+        programs_buffer_index += serialize_uint16_be(&buffer[programs_buffer_index], program->time_unit_decisecs);
 
         for (uint16_t j = 0; j < PROGRAM_DAC_LEVELS; j++) {
-            buffer_index += serialize_uint8(&buffer[buffer_index], program->dac_levels[j]);
+            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->dac_levels[j]);
         }
 
         for (uint16_t j = 0; j < PROGRAM_SENSOR_LEVELS; j++) {
-            buffer_index += serialize_uint8(&buffer[buffer_index], program->sensor_levels[j]);
+            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->sensor_levels[j]);
         }
 
         if (write_exactly(buffer, sizeof(buffer), fp) < 0) {

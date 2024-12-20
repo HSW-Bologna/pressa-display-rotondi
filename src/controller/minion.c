@@ -18,7 +18,7 @@
 #define MODBUS_RESPONSE_03_LEN(data_len)   (5 + data_len * 2)
 #define MODBUS_RESPONSE_05_LEN             8
 #define MODBUS_REQUEST_MESSAGE_QUEUE_SIZE  8
-#define MODBUS_RESPONSE_MESSAGE_QUEUE_SIZE 8
+#define MODBUS_RESPONSE_MESSAGE_QUEUE_SIZE 4
 #define MODBUS_TIMEOUT                     40
 #define MODBUS_MAX_PACKET_SIZE             256
 #define MODBUS_COMMUNICATION_ATTEMPTS      3
@@ -52,9 +52,17 @@ struct __attribute__((packed)) task_message {
 
     union {
         struct {
-            uint8_t  test_on;
-            uint16_t outputs;
-            uint16_t pwm;
+            uint8_t                            test_on;
+            uint16_t                           outputs;
+            uint16_t                           pwm;
+            uint16_t                           headgap_offset_up;
+            uint16_t                           headgap_offset_down;
+            program_digital_channel_schedule_t digital_channels[PROGRAM_NUM_DIGITAL_CHANNELS];
+            program_dac_channel_state_t        dac_channel[PROGRAM_NUM_TIME_UNITS];
+            program_sensor_channel_threshold_t sensor_channel[PROGRAM_NUM_TIME_UNITS];
+            uint16_t                           time_unit_decisecs;
+            program_dac_channel_state_t        dac_levels[PROGRAM_DAC_LEVELS];
+            program_sensor_channel_threshold_t sensor_levels[PROGRAM_SENSOR_LEVELS];
         } sync;
     } as;
 };
@@ -100,18 +108,29 @@ void minion_retry_communication(void) {
 
 
 void minion_sync(model_t *model) {
+    const program_t *program = model_get_current_program(model);
+
     struct task_message msg = {
         .tag = TASK_MESSAGE_TAG_SYNC,
         .as =
             {
                 .sync =
                     {
-                        .test_on = model->run.minion.write.test_on,
-                        .outputs = model->run.minion.write.outputs,
-                        .pwm     = model->run.minion.write.pwm,
+                        .test_on             = model->run.minion.write.test_on,
+                        .outputs             = model->run.minion.write.outputs,
+                        .pwm                 = model->run.minion.write.pwm,
+                        .headgap_offset_up   = model->config.headgap_offset_up,
+                        .headgap_offset_down = model->config.headgap_offset_down,
+                        .time_unit_decisecs  = program->time_unit_decisecs,
                     },
             },
     };
+
+    memcpy(&msg.as.sync.digital_channels, &program->digital_channels, sizeof(program->digital_channels));
+    memcpy(&msg.as.sync.dac_channel, &program->dac_channel, sizeof(program->dac_channel));
+    memcpy(&msg.as.sync.sensor_channel, &program->sensor_channel, sizeof(program->sensor_channel));
+    memcpy(&msg.as.sync.dac_levels, &program->dac_levels, sizeof(program->dac_levels));
+    memcpy(&msg.as.sync.sensor_levels, &program->sensor_levels, sizeof(program->sensor_levels));
     socketq_send(&messageq, (uint8_t *)&msg);
 }
 
@@ -182,10 +201,73 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
             }
 
             if (!error) {
-                uint16_t values[3] = {
+                uint16_t values[54] = {
                     message.as.sync.test_on,
                     message.as.sync.outputs,
                     message.as.sync.pwm,
+                    message.as.sync.headgap_offset_up,
+                    message.as.sync.headgap_offset_down,
+                    message.as.sync.time_unit_decisecs,
+                    message.as.sync.dac_levels[0],
+                    message.as.sync.dac_levels[1],
+                    message.as.sync.dac_levels[2],
+                    message.as.sync.sensor_levels[0],
+                    message.as.sync.sensor_levels[1],
+                    message.as.sync.sensor_levels[2],
+                    (message.as.sync.digital_channels[0] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[0] & 0xFFFF,
+                    (message.as.sync.digital_channels[1] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[1] & 0xFFFF,
+                    (message.as.sync.digital_channels[2] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[2] & 0xFFFF,
+                    (message.as.sync.digital_channels[3] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[3] & 0xFFFF,
+                    (message.as.sync.digital_channels[4] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[4] & 0xFFFF,
+                    (message.as.sync.digital_channels[5] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[5] & 0xFFFF,
+                    (message.as.sync.digital_channels[6] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[6] & 0xFFFF,
+                    (message.as.sync.digital_channels[7] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[7] & 0xFFFF,
+                    (message.as.sync.digital_channels[8] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[8] & 0xFFFF,
+                    (message.as.sync.digital_channels[9] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[9] & 0xFFFF,
+                    (message.as.sync.digital_channels[10] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[10] & 0xFFFF,
+                    (message.as.sync.digital_channels[11] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[11] & 0xFFFF,
+                    (message.as.sync.digital_channels[12] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[12] & 0xFFFF,
+                    (message.as.sync.digital_channels[13] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[13] & 0xFFFF,
+                    ((message.as.sync.dac_channel[0] & 0xF) << 12) | ((message.as.sync.dac_channel[1] & 0xF) << 8) |
+                        ((message.as.sync.dac_channel[2] & 0xF) << 4) | (message.as.sync.dac_channel[3] & 0xF),
+                    ((message.as.sync.dac_channel[4] & 0xF) << 12) | ((message.as.sync.dac_channel[5] & 0xF) << 8) |
+                        ((message.as.sync.dac_channel[6] & 0xF) << 4) | (message.as.sync.dac_channel[7] & 0xF),
+                    ((message.as.sync.dac_channel[8] & 0xF) << 12) | ((message.as.sync.dac_channel[9] & 0xF) << 8) |
+                        ((message.as.sync.dac_channel[10] & 0xF) << 4) | (message.as.sync.dac_channel[11] & 0xF),
+                    ((message.as.sync.dac_channel[12] & 0xF) << 12) | ((message.as.sync.dac_channel[13] & 0xF) << 8) |
+                        ((message.as.sync.dac_channel[14] & 0xF) << 4) | (message.as.sync.dac_channel[15] & 0xF),
+                    ((message.as.sync.dac_channel[16] & 0xF) << 12) | ((message.as.sync.dac_channel[17] & 0xF) << 8) |
+                        ((message.as.sync.dac_channel[18] & 0xF) << 4) | (message.as.sync.dac_channel[19] & 0xF),
+                    ((message.as.sync.dac_channel[20] & 0xF) << 12) | ((message.as.sync.dac_channel[21] & 0xF) << 8) |
+                        ((message.as.sync.dac_channel[22] & 0xF) << 4) | (message.as.sync.dac_channel[23] & 0xF),
+                    message.as.sync.dac_channel[24],
+                    ((message.as.sync.sensor_channel[0] & 0xF) << 12) | ((message.as.sync.sensor_channel[1] & 0xF) << 8) |
+                        ((message.as.sync.sensor_channel[2] & 0xF) << 4) | (message.as.sync.sensor_channel[3] & 0xF),
+                    ((message.as.sync.sensor_channel[4] & 0xF) << 12) | ((message.as.sync.sensor_channel[5] & 0xF) << 8) |
+                        ((message.as.sync.sensor_channel[6] & 0xF) << 4) | (message.as.sync.sensor_channel[7] & 0xF),
+                    ((message.as.sync.sensor_channel[8] & 0xF) << 12) | ((message.as.sync.sensor_channel[9] & 0xF) << 8) |
+                        ((message.as.sync.sensor_channel[10] & 0xF) << 4) | (message.as.sync.sensor_channel[11] & 0xF),
+                    ((message.as.sync.sensor_channel[12] & 0xF) << 12) | ((message.as.sync.sensor_channel[13] & 0xF) << 8) |
+                        ((message.as.sync.sensor_channel[14] & 0xF) << 4) | (message.as.sync.sensor_channel[15] & 0xF),
+                    ((message.as.sync.sensor_channel[16] & 0xF) << 12) | ((message.as.sync.sensor_channel[17] & 0xF) << 8) |
+                        ((message.as.sync.sensor_channel[18] & 0xF) << 4) | (message.as.sync.sensor_channel[19] & 0xF),
+                    ((message.as.sync.sensor_channel[20] & 0xF) << 12) | ((message.as.sync.sensor_channel[21] & 0xF) << 8) |
+                        ((message.as.sync.sensor_channel[22] & 0xF) << 4) | (message.as.sync.sensor_channel[23] & 0xF),
+                    message.as.sync.sensor_channel[24],
                 };
 
                 if (write_holding_registers(master, MINION_ADDR, MODBUS_HR_TEST_MODE, values,

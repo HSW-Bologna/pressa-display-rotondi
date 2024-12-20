@@ -75,3 +75,10 @@ void program_flip_digital_channel_state_at(program_t *program, uint16_t channel,
         program->digital_channels[channel] |= ((program_digital_channel_schedule_t)1) << instant;
     }
 }
+
+
+uint32_t program_get_duration_milliseconds(const program_t *program) {
+    assert(program);
+
+    return PROGRAM_NUM_TIME_UNITS * program->time_unit_decisecs * 100;
+}

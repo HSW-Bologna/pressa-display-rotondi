@@ -5,11 +5,13 @@
 #include <stdint.h>
 
 
-#define PROGRAM_NAME_LENGTH            20
-#define PROGRAM_NAME_SIZE              (PROGRAM_NAME_LENGTH + 1)
-#define PROGRAM_NUM_DIGITAL_CHANNELS   14
-#define PROGRAM_NUM_CHANNELS           (PROGRAM_NUM_DIGITAL_CHANNELS + 2)
-#define PROGRAM_NUM_TIME_UNITS         25
+#define PROGRAM_NAME_LENGTH          20
+#define PROGRAM_NAME_SIZE            (PROGRAM_NAME_LENGTH + 1)
+#define PROGRAM_NUM_DIGITAL_CHANNELS 14
+#define PROGRAM_NUM_CHANNELS         (PROGRAM_NUM_DIGITAL_CHANNELS + 2)
+#define PROGRAM_NUM_TIME_UNITS       25
+#define PROGRAM_DAC_CHANNEL_INDEX    7
+#define PROGRAM_SENSOR_CHANNEL_INDEX 11
 
 
 typedef char name_t[PROGRAM_NAME_SIZE];
@@ -69,6 +71,7 @@ void                               program_increase_dac_channel_state_at(program
 void                               program_increase_sensor_channel_threshold_at(program_t *program, uint16_t instant);
 void                               program_init(program_t *program);
 void                               program_check_parameters(program_t *program);
+uint32_t                           program_get_duration_milliseconds(const program_t *program);
 
 
 #endif

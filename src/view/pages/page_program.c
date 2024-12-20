@@ -165,14 +165,14 @@ static void open_page(pman_handle_t handle, void *state) {
         pdata->obj_digital_time_bars[i] = time_bar;
 
         // Channel 8 (after the next index, 7) should be the DAC channel
-        if (i == 6) {
+        if (i == PROGRAM_DAC_CHANNEL_INDEX - 1) {
             lv_obj_t *time_bar = view_common_time_bar_create(right_panel, BTN_DAC_CHANNEL_ID);
             lv_obj_remove_flag(time_bar, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
             lv_obj_remove_flag(time_bar, LV_OBJ_FLAG_SNAPPABLE);
             pdata->obj_dac_time_bar = time_bar;
         }
         // Channel 12 (the next index minus one, 10) should be the 4-20ma channel
-        else if (i == 9) {
+        else if (i == PROGRAM_SENSOR_CHANNEL_INDEX - 2) {
             lv_obj_t *time_bar = view_common_time_bar_create(right_panel, BTN_SENSOR_CHANNEL_ID);
             lv_obj_remove_flag(time_bar, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
             lv_obj_remove_flag(time_bar, LV_OBJ_FLAG_SNAPPABLE);

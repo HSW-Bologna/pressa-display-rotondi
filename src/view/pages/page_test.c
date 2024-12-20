@@ -26,6 +26,7 @@ struct page_data {
     lv_obj_t *label_4_20ma;
     lv_obj_t *label_pwm;
 
+    lv_obj_t *slider_4_20ma;
     lv_obj_t *slider_pwm;
 };
 
@@ -76,7 +77,7 @@ static void open_page(pman_handle_t handle, void *state) {
 
                 lv_obj_t *led = lv_led_create(btn);
                 lv_obj_add_flag(led, LV_OBJ_FLAG_EVENT_BUBBLE);
-                lv_led_set_color(led, STYLE_COLOR_GREEN);
+                lv_led_set_color(led, lv_color_darken(STYLE_COLOR_GREEN, LV_OPA_20));
                 lv_obj_set_size(led, 32, 32);
                 lv_obj_center(led);
 
@@ -84,6 +85,7 @@ static void open_page(pman_handle_t handle, void *state) {
                 lv_obj_set_style_text_color(lbl, STYLE_COLOR_BLACK, LV_STATE_DEFAULT);
                 lv_obj_add_flag(lbl, LV_OBJ_FLAG_EVENT_BUBBLE);
                 lv_obj_set_style_text_font(lbl, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(lbl, lv_color_white(), LV_STATE_DEFAULT);
                 lv_label_set_text_fmt(lbl, "%02zu", i + 1);
                 lv_obj_center(lbl);
 
@@ -108,12 +110,13 @@ static void open_page(pman_handle_t handle, void *state) {
                 lv_obj_set_size(obj, 52, 52);
 
                 lv_obj_t *led = lv_led_create(obj);
-                lv_led_set_color(led, STYLE_COLOR_GREEN);
+                lv_led_set_color(led, lv_color_darken(STYLE_COLOR_GREEN, LV_OPA_20));
                 lv_obj_set_size(led, 32, 32);
                 lv_obj_center(led);
 
                 lv_obj_t *lbl = lv_label_create(obj);
                 lv_obj_set_style_text_font(lbl, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(lbl, lv_color_white(), LV_STATE_DEFAULT);
                 lv_label_set_text_fmt(lbl, "%02zu", i + 1);
                 lv_obj_center(lbl);
 
@@ -123,25 +126,40 @@ static void open_page(pman_handle_t handle, void *state) {
     }
 
     {
-        lv_obj_t *tab          = lv_tabview_add_tab(tabview, "Analogico");
-        lv_obj_t *label_4_20ma = lv_label_create(tab);
-        lv_obj_center(label_4_20ma);
-        pdata->label_4_20ma = label_4_20ma;
-    }
+        lv_obj_t *tab = lv_tabview_add_tab(tabview, "Analogico");
 
-    {
-        lv_obj_t *tab = lv_tabview_add_tab(tabview, "0-10V");
+        {
+            lv_obj_t *slider = lv_slider_create(tab);
+            lv_slider_set_range(slider, 0, 100);
+            lv_obj_set_style_pad_hor(slider, 32, LV_STATE_DEFAULT | LV_PART_MAIN);
+            lv_obj_set_style_pad_all(slider, -4, LV_STATE_DEFAULT | LV_PART_KNOB);
+            lv_obj_set_size(slider, 640, 64);
+            lv_obj_align(slider, LV_ALIGN_CENTER, 0, -128);
+            lv_obj_remove_flag(slider, LV_OBJ_FLAG_CLICKABLE);
+            view_register_object_default_callback(slider, SLIDER_PWM_ID);
+            pdata->slider_4_20ma = slider;
 
-        lv_obj_t *slider = lv_slider_create(tab);
-        lv_slider_set_range(slider, 0, 100);
-        lv_obj_set_size(slider, 640, 64);
-        lv_obj_align(slider, LV_ALIGN_CENTER, 0, -32);
-        view_register_object_default_callback(slider, SLIDER_PWM_ID);
-        pdata->slider_pwm = slider;
+            lv_obj_t *label = lv_label_create(tab);
+            lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+            lv_obj_align_to(label, slider, LV_ALIGN_BOTTOM_MID, 0, 32);
+            pdata->label_4_20ma = label;
+        }
 
-        lv_obj_t *label = lv_label_create(tab);
-        lv_obj_align(label, LV_ALIGN_CENTER, 0, 32);
-        pdata->label_pwm = label;
+        {
+            lv_obj_t *slider = lv_slider_create(tab);
+            lv_slider_set_range(slider, 0, 100);
+            lv_obj_set_style_pad_hor(slider, 32, LV_STATE_DEFAULT | LV_PART_MAIN);
+            lv_obj_set_style_pad_hor(slider, -4, LV_STATE_DEFAULT | LV_PART_KNOB);
+            lv_obj_set_size(slider, 640, 64);
+            lv_obj_align(slider, LV_ALIGN_CENTER, 0, 96);
+            view_register_object_default_callback(slider, SLIDER_PWM_ID);
+            pdata->slider_pwm = slider;
+
+            lv_obj_t *label = lv_label_create(tab);
+            lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+            lv_obj_align_to(label, slider, LV_ALIGN_BOTTOM_MID, 0, 32);
+            pdata->label_pwm = label;
+        }
     }
 
     lv_obj_t *button = lv_button_create(lv_screen_active());
@@ -268,7 +286,9 @@ static void update_page(model_t *model, struct page_data *pdata) {
         }
     }
 
+    lv_slider_set_value(pdata->slider_4_20ma, model->run.minion.read.ma4_20_adc, LV_ANIM_OFF);
     lv_label_set_text_fmt(pdata->label_4_20ma, "%4i", model->run.minion.read.ma4_20_adc);
+    lv_slider_set_value(pdata->slider_pwm, model->run.minion.write.pwm, LV_ANIM_OFF);
     lv_label_set_text_fmt(pdata->label_pwm, "%3i%% (%4i)", model->run.minion.write.pwm,
                           model->run.minion.read.v0_10_adc);
 }

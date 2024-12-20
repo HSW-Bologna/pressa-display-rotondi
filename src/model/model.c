@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "model.h"
 #include <string.h>
+#include "config/app_config.h"
 
 
 void model_init(mut_model_t *model) {
@@ -17,15 +18,27 @@ void model_init(mut_model_t *model) {
     for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
         snprintf(model->config.channel_names[i], sizeof(model->config.channel_names[i]), "CH %i", i + 1);
     }
+
+    model->run.current_program_index = -1;
 }
 
 
 void model_check_parameters(mut_model_t *model) {
+#define CHECK_WITHIN(Par, Min, Max)                                                                                    \
+    if ((Par) < (Min)) {                                                                                               \
+        (Par) = (Min);                                                                                                 \
+    } else if ((Par) > (Max)) {                                                                                        \
+        (Par) = (Max);                                                                                                 \
+    }
     assert(model);
+
+    CHECK_WITHIN(model->config.headgap_offset_up, APP_CONFIG_MIN_HEADGAP_OFFSET, APP_CONFIG_MAX_HEADGAP_OFFSET);
+    CHECK_WITHIN(model->config.headgap_offset_down, APP_CONFIG_MIN_HEADGAP_OFFSET, APP_CONFIG_MAX_HEADGAP_OFFSET);
 
     for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
         program_check_parameters(&model->config.programs[i]);
     }
+#undef CHECK_WITHIN
 }
 
 
@@ -65,4 +78,23 @@ void model_set_test_output(mut_model_t *model, uint16_t output_index) {
     assert(model != NULL);
 
     model->run.minion.write.outputs = 1 << output_index;
+}
+
+
+uint8_t model_is_program_ready(model_t *model) {
+    assert(model != NULL);
+
+    return model->run.current_program_index >= 0;
+}
+
+
+const program_t *model_get_current_program(model_t *model) {
+    assert(model != NULL);
+
+    if (model_is_program_ready(model)) {
+        return &model->config.programs[model->run.current_program_index];
+    } else {
+        static program_t program = {0};
+        return &program;
+    }
 }
