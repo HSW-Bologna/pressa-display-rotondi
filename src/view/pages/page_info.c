@@ -1,3 +1,4 @@
+#if 0
 #include "../view.h"
 #include "lvgl.h"
 #include "model/model.h"
@@ -6,6 +7,11 @@
 #include "src/page.h"
 #include <assert.h>
 #include <stdlib.h>
+
+
+enum {
+    BTN_ID,
+};
 
 struct page_data {
     char *message;
@@ -36,10 +42,6 @@ static void open_page(pman_handle_t handle, void *state) {
         lv_obj_center(lbl);
         lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -16);
         view_register_object_default_callback(btn, 0);
-
-        if (pdata->message != NULL) {
-            lv_label_set_text(lbl, pdata->message);
-        }
     }
 
     update_page(model, pdata);
@@ -57,7 +59,6 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
             view_event_t *view_event = event.as.user;
             switch (view_event->tag) {
                 case VIEW_EVENT_TAG_STORAGE_OPERATION_COMPLETED:
-                    view_get_protocol(handle)->hello();
                     break;
                 default:
                     break;
@@ -73,9 +74,8 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                 case LV_EVENT_CLICKED: {
                     switch (obj_data->id) {
                         case 0: {
-                            view_get_protocol(handle)->hello();
                             if (pdata->message == NULL) {
-                                msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_main, "Secondo messaggio");
+                                msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_home, "Secondo messaggio");
                             } else {
                                 msg.stack_msg = PMAN_STACK_MSG_BACK();
                             }
@@ -109,10 +109,11 @@ static void close_page(void *state) {
     lv_obj_clean(lv_scr_act());
 }
 
-const pman_page_t page_main = {
+const pman_page_t page_info = {
     .create        = create_page,
     .destroy       = pman_destroy_all,
     .open          = open_page,
     .close         = close_page,
     .process_event = page_event,
 };
+#endif

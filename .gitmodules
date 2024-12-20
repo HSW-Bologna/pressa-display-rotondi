@@ -4,3 +4,12 @@
 [submodule "lib/c-page-manager"]
 	path = lib/c-page-manager
 	url = https://github.com/Maldus512/c-page-manager.git
+[submodule "lib/log"]
+	path = lib/log
+	url = https://github.com/Maldus512/log.c.git
+[submodule "lib/liblightmodbus"]
+	path = lib/liblightmodbus
+	url = https://github.com/Jacajack/liblightmodbus.git
+[submodule "lib/c-watcher"]
+	path = lib/c-watcher
+	url = https://github.com/Maldus512/c-watcher.git
