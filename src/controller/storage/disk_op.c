@@ -1,4 +1,3 @@
-#if 0
 #include <poll.h>
 #include <errno.h>
 #include <string.h>
@@ -25,7 +24,7 @@
 #define MOUNT_ATTEMPTS       5
 #define APP_UPDATE           "/tmp/mnt/pressa-display-rotondi.bin"
 
-#ifdef TARGET_DEBUG
+#ifdef BUILD_CONFIG_SIMULATOR
 #define TEMPORARY_APP "./newapp"
 #else
 #define TEMPORARY_APP "/root/newapp"
@@ -38,24 +37,39 @@ typedef struct {
 } disk_op_name_list_t;
 
 
+typedef struct {
+    disk_op_callback_t callback;
+    uint8_t            error;
+    void              *data;
+    void              *arg;
+
+    uint8_t            payload;
+    disk_op_response_t response;
+} task_response_t;
+
+
 typedef enum {
-    DISK_OP_MESSAGE_CODE_LOAD_PROGRAMS,
-    DISK_OP_MESSAGE_CODE_SAVE_PROGRAM,
-    DISK_OP_MESSAGE_CODE_SAVE_WIFI_CONFIG,
-    DISK_OP_MESSAGE_CODE_FIRMWARE_UPDATE,
-} disk_op_message_code_t;
+    DISK_OP_MESSAGE_TAG_LOAD_CONFIG,
+    DISK_OP_MESSAGE_TAG_SAVE_CONFIG,
+    DISK_OP_MESSAGE_TAG_SAVE_WIFI_CONFIG,
+    DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE,
+} task_request_tag_t;
 
 
 typedef struct {
-    disk_op_message_code_t   code;
-    disk_op_callback_t       callback;
-    disk_op_error_callback_t error_callback;
-    void                    *data;
-    void                    *arg;
-} disk_op_message_t;
+    task_request_tag_t tag;
+    disk_op_callback_t callback;
+    void              *arg;
+
+    union {
+        struct {
+            configuration_t *config;
+        } save_config;
+    } as;
+} task_request_t;
 
 static void *disk_interaction_task(void *args);
-static void  simple_request(int code, disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg);
+static void  simple_request(int code);
 
 
 static socketq_t       requestq;
@@ -65,8 +79,8 @@ static int             drive_mounted = 0;
 
 
 void disk_op_init(void) {
-    int res1 = socketq_init(&requestq, REQUEST_SOCKET_PATH, sizeof(disk_op_message_t));
-    int res2 = socketq_init(&responseq, RESPONSE_SOCKET_PATH, sizeof(disk_op_response_t));
+    int res1 = socketq_init(&requestq, REQUEST_SOCKET_PATH, sizeof(task_request_t));
+    int res2 = socketq_init(&responseq, RESPONSE_SOCKET_PATH, sizeof(task_response_t));
     assert(res1 == 0 && res2 == 0);
 
     assert(pthread_mutex_init(&sem, NULL) == 0);
@@ -77,33 +91,30 @@ void disk_op_init(void) {
 }
 
 
-void disk_op_save_program(program_t *p, disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    name_t *program_copy = malloc(sizeof(program_t));
-    memcpy(program_copy, p, sizeof(program_t));
-    assert(program_copy != NULL);
-    disk_op_message_t msg = {
-        .code           = DISK_OP_MESSAGE_CODE_SAVE_PROGRAM,
-        .data           = program_copy,
-        .callback       = cb,
-        .error_callback = errcb,
-        .arg            = arg,
+void disk_op_save_config(const configuration_t *config) {
+    configuration_t *config_copy = malloc(sizeof(configuration_t));
+    assert(config_copy != NULL);
+    memcpy(config_copy, config, sizeof(configuration_t));
+    task_request_t msg = {
+        .tag = DISK_OP_MESSAGE_TAG_SAVE_CONFIG,
+        .as  = {.save_config = {.config = config_copy}},
     };
     socketq_send(&requestq, (uint8_t *)&msg);
 }
 
 
-void disk_op_load_programs(disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    simple_request(DISK_OP_MESSAGE_CODE_LOAD_PROGRAMS, cb, errcb, arg);
+void disk_op_load_config(void) {
+    simple_request(DISK_OP_MESSAGE_TAG_LOAD_CONFIG);
 }
 
 
-void disk_op_save_wifi_config(disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    simple_request(DISK_OP_MESSAGE_CODE_SAVE_WIFI_CONFIG, cb, errcb, arg);
+void disk_op_save_wifi_config(void) {
+    simple_request(DISK_OP_MESSAGE_TAG_SAVE_WIFI_CONFIG);
 }
 
 
-void disk_op_firmware_update(disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    simple_request(DISK_OP_MESSAGE_CODE_FIRMWARE_UPDATE, cb, errcb, arg);
+void disk_op_firmware_update(void) {
+    simple_request(DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE);
 }
 
 
@@ -115,21 +126,23 @@ int disk_op_is_drive_mounted(void) {
 }
 
 
-int disk_op_manage_response(model_t *pmodel) {
-    disk_op_response_t response = {0};
+uint8_t disk_op_get_response(disk_op_response_t *response) {
+    task_response_t task_response = {0};
 
-    if (socketq_receive_nonblock(&responseq, (uint8_t *)&response, 0)) {
-        if (response.error) {
-            if (response.error_callback != NULL) {
-                response.error_callback(pmodel, response.arg);
-            }
-        } else {
-            response.callback(pmodel, response.data, response.arg);
-            if (!response.transfer_data) {
-                free(response.data);
-            }
+    if (socketq_receive_nonblock(&responseq, (uint8_t *)&task_response, 0)) {
+        if (task_response.callback) {
+            task_response.callback(task_response.error, task_response.data, task_response.arg);
         }
-        return 1;
+        if (task_response.payload) {
+            if (task_response.error) {
+                response->tag = DISK_OP_RESPONSE_TAG_ERROR;
+            } else {
+                *response = task_response.response;
+            }
+            return 1;
+        } else {
+            return 0;
+        }
     } else {
         return 0;
     }
@@ -142,44 +155,44 @@ int disk_op_is_firmware_present(void) {
 
 
 static void *disk_interaction_task(void *args) {
+    (void)args;
     unsigned int mount_attempts = 0;
 
     storage_create_dir(APP_CONFIG_DATA_PATH);
 
     for (;;) {
-        disk_op_message_t msg;
+        task_request_t msg;
         if (socketq_receive_nonblock(&requestq, (uint8_t *)&msg, 500)) {
-            disk_op_response_t response = {
-                .callback       = msg.callback,
-                .error_callback = msg.error_callback,
-                .data           = NULL,
-                .arg            = msg.arg,
-                .transfer_data  = 0,
+            task_response_t response = {
+                .data = NULL,
+                .arg  = msg.arg,
             };
 
-            switch (msg.code) {
-                case DISK_OP_MESSAGE_CODE_SAVE_PROGRAM:
-                    response.error = storage_update_program(APP_CONFIG_DATA_PATH, msg.data);
-                    free(msg.data);
+            switch (msg.tag) {
+                case DISK_OP_MESSAGE_TAG_SAVE_CONFIG:
+                    response.error =
+                        storage_save_configuration(APP_CONFIG_CONFIGURATION_PATH, msg.as.save_config.config);
+                    free(msg.as.save_config.config);
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
 
-                case DISK_OP_MESSAGE_CODE_LOAD_PROGRAMS:
-                    response.data = malloc(sizeof(storage_program_list_t));
-                    if (response.data == NULL) {
-                        response.error = 1;
-                    } else {
-                        response.error = storage_load_programs(APP_CONFIG_DATA_PATH, response.data);
-                    }
+                case DISK_OP_MESSAGE_TAG_LOAD_CONFIG:
+                    response.payload                                 = 1;
+                    response.response.tag                            = DISK_OP_RESPONSE_TAG_CONFIGURATION_LOADED;
+                    response.response.as.configuration_loaded.config = malloc(sizeof(configuration_t));
+                    assert(response.response.as.configuration_loaded.config);
+
+                    response.error = storage_load_configuration(APP_CONFIG_CONFIGURATION_PATH,
+                                                                response.response.as.configuration_loaded.config);
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
 
-                case DISK_OP_MESSAGE_CODE_SAVE_WIFI_CONFIG:
+                case DISK_OP_MESSAGE_TAG_SAVE_WIFI_CONFIG:
                     response.error = wifi_save_config();
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
 
-                case DISK_OP_MESSAGE_CODE_FIRMWARE_UPDATE:
+                case DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE:
                     response.error = storage_update_temporary_firmware(APP_UPDATE, TEMPORARY_APP);
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
@@ -227,14 +240,9 @@ static void *disk_interaction_task(void *args) {
 }
 
 
-static void simple_request(int code, disk_op_callback_t cb, disk_op_error_callback_t errcb, void *arg) {
-    disk_op_message_t msg = {
-        .code           = code,
-        .data           = NULL,
-        .callback       = cb,
-        .error_callback = errcb,
-        .arg            = arg,
+static void simple_request(int code) {
+    task_request_t msg = {
+        .tag = code,
     };
     socketq_send(&requestq, (uint8_t *)&msg);
 }
-#endif

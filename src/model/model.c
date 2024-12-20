@@ -12,9 +12,19 @@ void model_init(mut_model_t *model) {
 
     for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
         snprintf(model->config.programs[i].name, sizeof(model->config.programs[i].name), "Program %i", i + 1);
+        program_init(&model->config.programs[i]);
     }
     for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
         snprintf(model->config.channel_names[i], sizeof(model->config.channel_names[i]), "CH %i", i + 1);
+    }
+}
+
+
+void model_check_parameters(mut_model_t *model) {
+    assert(model);
+
+    for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
+        program_check_parameters(&model->config.programs[i]);
     }
 }
 

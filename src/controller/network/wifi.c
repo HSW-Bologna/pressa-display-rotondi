@@ -19,7 +19,7 @@
 #include "wpa_ctrl.h"
 #include "log.h"
 
-#ifdef TARGET_DEBUG
+#ifdef BUILD_CONFIG_SIMULATOR
 #define WPASOCK "/run/wpa_supplicant/wlp112s0"
 #define remount_ro()
 #define remount_rw()

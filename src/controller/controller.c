@@ -1,3 +1,4 @@
+#include <string.h>
 #include <linux/reboot.h>
 #include <sys/reboot.h>
 #include <unistd.h>
@@ -24,13 +25,23 @@ void controller_init(mut_model_t *model) {
     wifi_init();
     minion_init();
 
-#if 0
-  disk_op_init();
-  disk_op_load_programs(load_programs_callback, NULL, NULL);
-    while (disk_op_manage_response(pmodel) == 0) {
-        usleep(1000);
+    disk_op_init();
+    disk_op_load_config();
+    for (;;) {
+        disk_op_response_t response = {0};
+        if (disk_op_get_response(&response)) {
+            if (response.tag == DISK_OP_RESPONSE_TAG_CONFIGURATION_LOADED) {
+                memcpy(&model->config, response.as.configuration_loaded.config, sizeof(configuration_t));
+                model_check_parameters(model);
+                log_info("Configuration loaded!");
+            } else {
+                log_warn("Could not load configuration (%i)", response.tag);
+            }
+            break;
+        } else {
+            usleep(1000);
+        }
     }
-#endif
 
     view_change_page(&page_home);
 }
@@ -64,7 +75,7 @@ void controller_manage(mut_model_t *model) {
     {
         static timestamp_t ts = 0;
         if (timestamp_is_expired(ts, 400)) {
-            //controller_sync_minion(model);
+            // controller_sync_minion(model);
             ts = timestamp_get();
         }
     }

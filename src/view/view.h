@@ -14,14 +14,13 @@ typedef struct {
     void (*test_output)(pman_handle_t handle, uint16_t output_index);
     void (*test_output_clear)(pman_handle_t handle);
     void (*test_pwm)(pman_handle_t handle, uint8_t percentage);
+    void (*save_configuration)(pman_handle_t handle);
 } view_protocol_t;
-
 
 typedef enum {
     VIEW_EVENT_TAG_STORAGE_OPERATION_COMPLETED,
     VIEW_EVENT_TAG_PAGE_WATCHER,
 } view_event_tag_t;
-
 
 typedef struct {
     view_event_tag_t tag;
@@ -34,6 +33,11 @@ typedef struct {
         } page_watcher;
     } as;
 } view_event_t;
+
+typedef struct {
+    uint8_t *modified;
+    uint16_t program_index;
+} view_page_program_arg_t;
 
 
 void             view_init(model_t *model, view_protocol_t protocol);
@@ -50,7 +54,7 @@ uint16_t         view_get_obj_number(lv_obj_t *obj);
 
 
 extern const pman_page_t page_home, page_info, page_settings_home, page_programs_home, page_execution_home,
-    page_execution_programs, page_programs_setup, page_test, page_config, page_program;
+    page_execution_programs, page_programs_setup, page_test, page_config, page_program, page_choice, page_execution;
 
 
 #endif

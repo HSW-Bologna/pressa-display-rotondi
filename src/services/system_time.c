@@ -15,7 +15,7 @@
 
 
 static int change_rtc_time(time_t seconds) {
-#ifndef TARGET_DEBUG
+#ifndef BUILD_CONFIG_SIMULATOR
     struct tm tm = *localtime(&seconds);
 
     // Nel RTC salvo la data senza DST
@@ -64,7 +64,7 @@ static int change_rtc_time(time_t seconds) {
 static int change_system_time(time_t seconds) {
     int res = 0;
 
-#ifndef TARGET_DEBUG
+#ifndef BUILD_CONFIG_SIMULATOR
     struct timespec tv = {.tv_sec = seconds, .tv_nsec = 0};
 
     if ((res = clock_settime(CLOCK_REALTIME, &tv))) {
@@ -88,7 +88,7 @@ int update_system_rtc_time(time_t seconds) {
 
 
 int init_system_time_from_rtc(void) {
-#ifndef TARGET_DEBUG
+#ifndef BUILD_CONFIG_SIMULATOR
     struct rtc_time rt;
     int             counter = 0;
 

@@ -1,4 +1,4 @@
-#if 0
+#include <string.h>
 #include <unistd.h>
 #include <archive.h>
 #include <archive_entry.h>
@@ -14,6 +14,14 @@
 #include "storage.h"
 #include "log.h"
 #include "config/app_config.h"
+#include "services/serializer.h"
+
+
+#define PROGRAM_SERIALIZED_SIZE                                                                                        \
+    (PROGRAM_NAME_SIZE + sizeof(program_digital_channel_schedule_t) * PROGRAM_NUM_DIGITAL_CHANNELS +                   \
+     PROGRAM_NUM_TIME_UNITS * 2 + 2 + PROGRAM_DAC_LEVELS + PROGRAM_SENSOR_LEVELS)
+
+#define STORAGE_VERSION 0
 
 #define DIR_CHECK(x)                                                                                                   \
     {                                                                                                                  \
@@ -22,82 +30,164 @@
             log_error("Errore nel maneggiare una cartella: %s", strerror(errno));                                      \
     }
 
-#ifdef TARGET_DEBUG
+
+static int is_drive(const char *path);
+static int dir_exists(char *name);
+static int copy_file(const char *to, const char *from);
+static int read_exactly(uint8_t *buffer, size_t length, FILE *fp);
+static int write_exactly(const uint8_t *buffer, size_t length, FILE *fp);
+static int is_dir(const char *path);
+
+
+#ifdef BUILD_CONFIG_SIMULATOR
 #define remount_ro()
 #define remount_rw()
 #else
 static inline void remount_ro() {
-    if (mount("/dev/mmcblk0p3", DEFAULT_BASE_PATH, "ext2", MS_REMOUNT | MS_RDONLY, NULL) < 0)
-        log_error("Errore nel montare la partizione %s: %s (%i)", DEFAULT_BASE_PATH, strerror(errno), errno);
+    if (mount("/dev/mmcblk0p3", APP_CONFIG_DATA_PATH, "ext2", MS_REMOUNT | MS_RDONLY, NULL) < 0)
+        log_error("Errore nel montare la partizione %s: %s (%i)", APP_CONFIG_DATA_PATH, strerror(errno), errno);
 }
 
 static inline void remount_rw() {
-    if (mount("/dev/mmcblk0p3", DEFAULT_BASE_PATH, "ext2", MS_REMOUNT, NULL) < 0)
-        log_error("Errore nel montare la partizione %s: %s (%i)", DEFAULT_BASE_PATH, strerror(errno), errno);
+    if (mount("/dev/mmcblk0p3", APP_CONFIG_DATA_PATH, "ext2", MS_REMOUNT, NULL) < 0)
+        log_error("Errore nel montare la partizione %s: %s (%i)", APP_CONFIG_DATA_PATH, strerror(errno), errno);
 }
 #endif
 
 
-int storage_load_programs(const char *path, press_program_list_t *pmodel) {
-    char file_path[128];
-    int count = 0;
+int storage_load_configuration(const char *path, configuration_t *config) {
+    if (storage_is_file(path)) {
+        FILE *fp = fopen(path, "rb");
 
-    for (int i = 0; i < NUM_PROGRAMS; i++) {
-        sprintf(file_path, "%s/program_%d.bin", path, i + 1);
+        if (!fp) {
+            log_error("Failed to open file %s: %s", path, strerror(errno));
+            return -1;
+        }
 
-        if (storage_is_file(file_path)) {
-            log_info("Found program %s", file_path);
-            FILE *fp = fopen(file_path, "rb");
+        for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
+            if (read_exactly((uint8_t *)config->channel_names[i], sizeof(name_t), fp) < 0) {
+                log_error("Failed to read file %s: %s", path, strerror(errno));
+                fclose(fp);
+                return -1;
+            }
+        }
 
-            if (!fp) {
-                log_error("Failed to open file %s: %s", file_path, strerror(errno));
-                continue;
+        for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
+            uint8_t  buffer[PROGRAM_SERIALIZED_SIZE] = {0};
+            uint16_t buffer_index                    = 1;     // Skip the version
+
+            if (read_exactly(buffer, sizeof(buffer), fp) < 0) {
+                log_error("Failed to read file %s: %s", path, strerror(errno));
+                fclose(fp);
+                return -1;
             }
 
-            size_t read = fread(&pmodel->programs[count], sizeof(program_t), 1, fp);
+            program_t *program = &config->programs[i];
+            memcpy(program->name, &buffer[buffer_index], PROGRAM_NAME_SIZE);
+            program->name[PROGRAM_NAME_LENGTH] = '\0';
+            buffer_index += PROGRAM_NAME_SIZE;
 
-            if (read != 1) {
-                log_error("Failed to read file %s: %s", file_path, strerror(errno));
-            } else {
-                snprintf(pmodel->programs[count].name, sizeof(pmodel->programs[count].name), "Program %d", count + 1);
-                log_info("Loaded program %d", count + 1);
-                count++;
+            for (uint16_t j = 0; j < PROGRAM_NUM_DIGITAL_CHANNELS; j++) {
+                buffer_index += deserialize_uint32_be(&program->digital_channels[j], &buffer[buffer_index]);
             }
 
+            for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
+                uint8_t value = 0;
+                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                program->dac_channel[j] = value;
+            }
+
+            for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
+                uint8_t value = 0;
+                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                program->sensor_channel[j] = value;
+            }
+
+            buffer_index += deserialize_uint16_be(&program->time_unit_decisecs, &buffer[buffer_index]);
+
+            for (uint16_t j = 0; j < PROGRAM_DAC_LEVELS; j++) {
+                uint8_t value = 0;
+                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                program->dac_levels[j] = value;
+            }
+
+            for (uint16_t j = 0; j < PROGRAM_SENSOR_LEVELS; j++) {
+                uint8_t value = 0;
+                buffer_index += deserialize_uint8(&value, &buffer[buffer_index]);
+                program->sensor_levels[j] = value;
+            }
+        }
+
+        fclose(fp);
+        return 0;
+    } else {
+        log_error("No such file: %s", path);
+        return -1;
+    }
+}
+
+
+int storage_save_configuration(const char *path, const configuration_t *config) {
+    FILE *fp = fopen(path, "wb");
+
+    if (!fp) {
+        log_error("Failed to open file %s: %s", path, strerror(errno));
+        return -1;
+    }
+
+    for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
+        if (write_exactly((const uint8_t *)config->channel_names[i], sizeof(name_t), fp) < 0) {
+            log_error("Failed to write file %s: %s", path, strerror(errno));
             fclose(fp);
+            return -1;
         }
     }
 
-    pmodel->num_programs = count;
-    return 0;
-}
+    for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
+        uint8_t buffer[PROGRAM_SERIALIZED_SIZE] = {0};
+        buffer[0]                               = STORAGE_VERSION;
+        uint16_t buffer_index                   = 1;
 
+        const program_t *program = &config->programs[i];
+        memcpy(&buffer[buffer_index], program->name, PROGRAM_NAME_SIZE);
+        buffer_index += PROGRAM_NAME_SIZE;
 
-int storage_update_program(const char *path, program_t *p) {
-    char filename[128];
-    int res = 0;
+        for (uint16_t j = 0; j < PROGRAM_NUM_DIGITAL_CHANNELS; j++) {
+            buffer_index += serialize_uint32_be(&buffer[buffer_index], program->digital_channels[j]);
+        }
 
-    remount_rw();
+        for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
+            if (i == 0) {
+                log_info("%i %i", j, program->dac_channel[j]);
+            }
+            buffer_index += serialize_uint8(&buffer[buffer_index], program->dac_channel[j]);
+        }
 
-    snprintf(filename, sizeof(filename), "%s/%s.bin", path, p->name);
-    FILE *fp = fopen(filename, "wb");
-    if (fp == NULL) {
-        log_error("Unable to open %s: %s", filename, strerror(errno));
-        return 1;
-    }
+        for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
+            buffer_index += serialize_uint8(&buffer[buffer_index], program->sensor_channel[j]);
+        }
 
-    size_t written = fwrite(p, sizeof(program_t), 1, fp);
-    if (written != 1) {
-        res = 1;
-        log_error("Failed to write file %s: %s", filename, strerror(errno));
-    } else {
-        log_info("Saved program %s", p->name);
+        buffer_index += serialize_uint16_be(&buffer[buffer_index], program->time_unit_decisecs);
+
+        for (uint16_t j = 0; j < PROGRAM_DAC_LEVELS; j++) {
+            buffer_index += serialize_uint8(&buffer[buffer_index], program->dac_levels[j]);
+        }
+
+        for (uint16_t j = 0; j < PROGRAM_SENSOR_LEVELS; j++) {
+            buffer_index += serialize_uint8(&buffer[buffer_index], program->sensor_levels[j]);
+        }
+
+        if (write_exactly(buffer, sizeof(buffer), fp) < 0) {
+            log_error("Failed to read file %s: %s", path, strerror(errno));
+            fclose(fp);
+            return -1;
+        }
     }
 
     fclose(fp);
-    remount_ro();
-    return res;
+    return 0;
 }
+
 
 
 char *storage_read_file(char *name) {
@@ -143,8 +233,8 @@ void storage_clear_file(const char *path) {
  */
 
 char storage_is_drive_plugged(void) {
-#ifdef TARGET_DEBUG
-    return is_dir(DRIVE_MOUNT_PATH);
+#ifdef BUILD_CONFIG_SIMULATOR
+    return is_dir(APP_CONFIG_DRIVE_MOUNT_PATH);
 #else
     char drive[32];
     for (char c = 'a'; c < 'h'; c++) {
@@ -158,14 +248,14 @@ char storage_is_drive_plugged(void) {
 
 
 int storage_mount_drive(void) {
-#ifdef TARGET_DEBUG
+#ifdef BUILD_CONFIG_SIMULATOR
     return 0;
 #else
     char path[80];
     char drive[64];
 
-    if (!dir_exists(DRIVE_MOUNT_PATH)) {
-        storage_create_dir(DRIVE_MOUNT_PATH);
+    if (!dir_exists(APP_CONFIG_DRIVE_MOUNT_PATH)) {
+        storage_create_dir(APP_CONFIG_DRIVE_MOUNT_PATH);
     }
 
     char c = storage_is_drive_plugged();
@@ -182,7 +272,7 @@ int storage_mount_drive(void) {
         log_info("Trovata partizione %s", path);
     }
 
-    if (mount(path, DRIVE_MOUNT_PATH, "vfat", 0, NULL) < 0) {
+    if (mount(path, APP_CONFIG_DRIVE_MOUNT_PATH, "vfat", 0, NULL) < 0) {
         if (errno == EBUSY)     // Il file system era gia' montato
             return 0;
 
@@ -195,14 +285,14 @@ int storage_mount_drive(void) {
 
 
 void storage_unmount_drive(void) {
-#ifdef TARGET_DEBUG
+#ifdef BUILD_CONFIG_SIMULATOR
     return;
 #endif
-    if (dir_exists(DRIVE_MOUNT_PATH)) {
-        if (umount(DRIVE_MOUNT_PATH) < 0) {
+    if (dir_exists(APP_CONFIG_DRIVE_MOUNT_PATH)) {
+        if (umount(APP_CONFIG_DRIVE_MOUNT_PATH) < 0) {
             log_warn("Umount error: %s (%i)", strerror(errno), errno);
         }
-        rmdir(DRIVE_MOUNT_PATH);
+        rmdir(APP_CONFIG_DRIVE_MOUNT_PATH);
     }
 }
 
@@ -218,7 +308,7 @@ int storage_is_file(const char *path) {
 int storage_update_temporary_firmware(char *app_path, char *temporary_path) {
     int res = 0;
 
-#ifdef TARGET_DEBUG
+#ifdef BUILD_CONFIG_SIMULATOR
     return 0;
 #endif
 
@@ -246,6 +336,35 @@ int storage_update_temporary_firmware(char *app_path, char *temporary_path) {
 /*
  *  Static functions
  */
+
+
+static int read_exactly(uint8_t *buffer, size_t length, FILE *fp) {
+    size_t count = 0;
+    while (count < length) {
+        size_t bytes_read = fread(&buffer[count], length - count, 1, fp);
+        if (0 == bytes_read) {
+            return -1;
+        } else {
+            count += bytes_read;
+        }
+    }
+    return count;
+}
+
+
+static int write_exactly(const uint8_t *buffer, size_t length, FILE *fp) {
+    size_t count = 0;
+    while (count < length) {
+        size_t bytes_written = fwrite(&buffer[count], length - count, 1, fp);
+        if (0 == bytes_written) {
+            return -1;
+        } else {
+            count += bytes_written;
+        }
+    }
+    return count;
+}
+
 
 
 static int is_dir(const char *path) {
@@ -322,4 +441,3 @@ static int copy_file(const char *to, const char *from) {
 
     return 0;
 }
-#endif

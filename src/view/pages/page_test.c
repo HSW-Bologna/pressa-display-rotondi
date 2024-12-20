@@ -55,74 +55,75 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_set_style_pad_left(tab_bar, 64, LV_STATE_DEFAULT);
 
     {
-        lv_obj_t *tab  = lv_tabview_add_tab(tabview, "Uscite");
-        lv_obj_t *cont = lv_obj_create(tab);
-        lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
-        lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
-        lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-        lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
-        lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-        lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_t *tab = lv_tabview_add_tab(tabview, "Digitale");
 
-        for (size_t i = 0; i < NUM_OUTPUTS; i++) {
-            lv_obj_t *btn = lv_btn_create(cont);
-            lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-            lv_obj_set_style_radius(btn, 4, LV_STATE_DEFAULT);
-            lv_obj_set_size(btn, 52, 52);
-            view_register_object_default_callback_with_number(btn, BTN_OUTPUT_ID, i);
+        {
+            lv_obj_t *cont = lv_obj_create(tab);
+            lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
+            lv_obj_set_size(cont, LV_PCT(100), LV_PCT(50));
+            lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
+            lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+            lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 0);
 
-            lv_obj_t *led = lv_led_create(btn);
-            lv_obj_add_flag(led, LV_OBJ_FLAG_EVENT_BUBBLE);
-            lv_led_set_color(led, STYLE_COLOR_GREEN);
-            lv_obj_set_size(led, 32, 32);
-            lv_obj_center(led);
+            for (size_t i = 0; i < NUM_OUTPUTS; i++) {
+                lv_obj_t *btn = lv_btn_create(cont);
+                lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+                lv_obj_set_style_radius(btn, 4, LV_STATE_DEFAULT);
+                lv_obj_set_size(btn, 52, 52);
+                view_register_object_default_callback_with_number(btn, BTN_OUTPUT_ID, i);
 
-            lv_obj_t *lbl = lv_label_create(btn);
-            lv_obj_set_style_text_color(lbl, STYLE_COLOR_BLACK, LV_STATE_DEFAULT);
-            lv_obj_add_flag(lbl, LV_OBJ_FLAG_EVENT_BUBBLE);
-            lv_obj_set_style_text_font(lbl, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
-            lv_label_set_text_fmt(lbl, "%02zu", i + 1);
-            lv_obj_center(lbl);
+                lv_obj_t *led = lv_led_create(btn);
+                lv_obj_add_flag(led, LV_OBJ_FLAG_EVENT_BUBBLE);
+                lv_led_set_color(led, STYLE_COLOR_GREEN);
+                lv_obj_set_size(led, 32, 32);
+                lv_obj_center(led);
 
-            pdata->led_outputs[i] = led;
+                lv_obj_t *lbl = lv_label_create(btn);
+                lv_obj_set_style_text_color(lbl, STYLE_COLOR_BLACK, LV_STATE_DEFAULT);
+                lv_obj_add_flag(lbl, LV_OBJ_FLAG_EVENT_BUBBLE);
+                lv_obj_set_style_text_font(lbl, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+                lv_label_set_text_fmt(lbl, "%02zu", i + 1);
+                lv_obj_center(lbl);
+
+                pdata->led_outputs[i] = led;
+            }
+        }
+
+        {
+            lv_obj_t *cont = lv_obj_create(tab);
+            lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
+            lv_obj_set_size(cont, LV_PCT(100), LV_PCT(50));
+            lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
+            lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+            lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+            for (size_t i = 0; i < NUM_INPUTS; i++) {
+                lv_obj_t *obj = lv_obj_create(cont);
+                lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+                lv_obj_set_style_radius(obj, 4, LV_STATE_DEFAULT);
+                lv_obj_set_size(obj, 52, 52);
+
+                lv_obj_t *led = lv_led_create(obj);
+                lv_led_set_color(led, STYLE_COLOR_GREEN);
+                lv_obj_set_size(led, 32, 32);
+                lv_obj_center(led);
+
+                lv_obj_t *lbl = lv_label_create(obj);
+                lv_obj_set_style_text_font(lbl, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+                lv_label_set_text_fmt(lbl, "%02zu", i + 1);
+                lv_obj_center(lbl);
+
+                pdata->led_input[i] = led;
+            }
         }
     }
 
     {
-        lv_obj_t *tab = lv_tabview_add_tab(tabview, "Ingressi");
-
-        lv_obj_t *cont = lv_obj_create(tab);
-        lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
-        lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
-        lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-        lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
-        lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-        lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-        for (size_t i = 0; i < NUM_INPUTS; i++) {
-            lv_obj_t *obj = lv_obj_create(cont);
-            lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
-            lv_obj_set_style_radius(obj, 4, LV_STATE_DEFAULT);
-            lv_obj_set_size(obj, 52, 52);
-
-            lv_obj_t *led = lv_led_create(obj);
-            lv_led_set_color(led, STYLE_COLOR_GREEN);
-            lv_obj_set_size(led, 32, 32);
-            lv_obj_center(led);
-
-            lv_obj_t *lbl = lv_label_create(obj);
-            lv_obj_set_style_text_font(lbl, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
-            lv_label_set_text_fmt(lbl, "%02zu", i + 1);
-            lv_obj_center(lbl);
-
-            pdata->led_input[i] = led;
-        }
-    }
-
-    {
-        lv_obj_t *tab          = lv_tabview_add_tab(tabview, "Sensori");
+        lv_obj_t *tab          = lv_tabview_add_tab(tabview, "Analogico");
         lv_obj_t *label_4_20ma = lv_label_create(tab);
         lv_obj_center(label_4_20ma);
         pdata->label_4_20ma = label_4_20ma;

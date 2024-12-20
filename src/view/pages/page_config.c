@@ -19,9 +19,12 @@ enum {
 };
 
 struct page_data {
+    lv_obj_t *date_time_label;
+
     char *message;
 
-    lv_obj_t *date_time_label;
+    uint8_t                 modified;
+    view_page_program_arg_t page_program_arg;
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
@@ -32,7 +35,8 @@ static void *create_page(pman_handle_t handle, void *extra) {
 
     struct page_data *pdata = lv_malloc(sizeof(struct page_data));
     assert(pdata != NULL);
-    pdata->message = extra;
+    pdata->message  = extra;
+    pdata->modified = 0;
 
     return pdata;
 }
@@ -52,22 +56,30 @@ static void open_page(pman_handle_t handle, void *state) {
     view_register_object_default_callback(button, BTN_BACK_ID);
 
     {
-        lv_obj_t *tab  = lv_tabview_add_tab(tabview, "Programmi");
-        lv_obj_t *cont = lv_obj_create(tab);
+        lv_obj_t *tab = lv_tabview_add_tab(tabview, "Programmi");
+        {
+            lv_obj_t *cont = lv_obj_create(tab);
 
-        lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
-        lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
-        lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-        lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN_WRAP);
-        lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_align(cont, LV_ALIGN_CENTER, 0, 0);
+            lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
+            lv_obj_set_size(cont, LV_PCT(68), LV_PCT(100));
+            lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN_WRAP);
+            lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+            lv_obj_align(cont, LV_ALIGN_RIGHT_MID, 0, 0);
 
-        for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
-            lv_obj_t *button = lv_button_create(cont);
-            lv_obj_t *label  = lv_label_create(button);
-            lv_label_set_text(label, model->config.programs[i].name);
-            view_register_object_default_callback_with_number(button, BTN_PROGRAM_ID, i);
+            for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
+                lv_obj_t *button = lv_button_create(cont);
+                lv_obj_t *label  = lv_label_create(button);
+                lv_label_set_text(label, model->config.programs[i].name);
+                view_register_object_default_callback_with_number(button, BTN_PROGRAM_ID, i);
+            }
+        }
+
+        {
+            lv_obj_t *cont = lv_obj_create(tab);
+            lv_obj_set_size(cont, LV_PCT(28), LV_PCT(100));
+            lv_obj_align(cont, LV_ALIGN_LEFT_MID, 0, 0);
         }
     }
 
@@ -81,6 +93,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     (void)pdata;
 
     mut_model_t *model = view_get_model(handle);
+    (void)model;
 
     switch (event.tag) {
         case PMAN_EVENT_TAG_USER: {
@@ -101,13 +114,18 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                 case LV_EVENT_CLICKED: {
                     switch (view_get_obj_id(target)) {
                         case BTN_BACK_ID:
+                            if (pdata->modified) {
+                                view_get_protocol(handle)->save_configuration(handle);
+                            }
                             msg.stack_msg = PMAN_STACK_MSG_BACK();
                             break;
 
                         case BTN_PROGRAM_ID:
-                            log_info("Number %i", view_get_obj_number(target));
-                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(
-                                &page_program, (void *)(uintptr_t)view_get_obj_number(target));
+                            pdata->page_program_arg.modified      = &pdata->modified;
+                            pdata->page_program_arg.program_index = view_get_obj_number(target);
+
+                            msg.stack_msg =
+                                PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_program, (void *)&pdata->page_program_arg);
                             break;
 
                         default:

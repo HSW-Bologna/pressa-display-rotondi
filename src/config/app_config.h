@@ -6,7 +6,7 @@
 #define SOFTWARE_BUILD_DATE __DATE__
 
 
-#ifdef TARGET_DEBUG
+#ifdef BUILD_CONFIG_SIMULATOR
 #define APP_CONFIG_DATA_PATH        "./data"
 #define APP_CONFIG_IFWIFI           "wlp112s0"
 #define APP_CONFIG_IFETH            "enp109s0"
@@ -22,11 +22,17 @@
 
 #define APP_CONFIG_DATA_VERSION 1
 
-#define APP_CONFIG_DRIVE_MOUNT_PATH  "/tmp/mnt"
-#define APP_CONFIG_DATA_VERSION_FILE APP_CONFIG_DATA_PATH "version.txt"
-#define APP_CONFIG_PARMAC_FILE       APP_CONFIG_DATA_PATH "/parmac.bin"
-#define APP_CONFIG_LOGFILE           "/tmp/pressa_log.txt"
-#define MAX_LOGFILE_SIZE             4000000UL
+#define APP_CONFIG_CONFIGURATION_PATH APP_CONFIG_DATA_PATH "/configuration.bin"
+#define APP_CONFIG_DRIVE_MOUNT_PATH   "/tmp/mnt"
+#define APP_CONFIG_LOGFILE            "/tmp/pressa_log.txt"
+#define MAX_LOGFILE_SIZE              4000000UL
+
+#define APP_CONFIG_MIN_TIME_UNIT_DECISECS 5
+#define APP_CONFIG_MAX_TIME_UNIT_DECISECS 20
+#define APP_CONFIG_MIN_DAC_LEVEL          0
+#define APP_CONFIG_MAX_DAC_LEVEL          100
+#define APP_CONFIG_MIN_SENSOR_LEVEL       0
+#define APP_CONFIG_MAX_SENSOR_LEVEL       100
 
 
 #endif

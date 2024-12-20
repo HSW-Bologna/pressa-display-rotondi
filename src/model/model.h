@@ -26,13 +26,14 @@ typedef struct {
     char ssid[33];
 } wifi_network_t;
 
+typedef struct {
+    name_t    channel_names[PROGRAM_NUM_CHANNELS];
+    program_t programs[NUM_PROGRAMS];
+} configuration_t;
 
 // collection of all models
 typedef struct {
-    struct {
-        name_t    channel_names[PROGRAM_NUM_CHANNELS];
-        program_t programs[NUM_PROGRAMS];
-    } config;
+    configuration_t config;
 
     struct {
         char            wifi_ipaddr[16];
@@ -79,5 +80,6 @@ const program_t *model_get_program(model_t *model, size_t num);
 program_t       *model_get_program_mut(mut_model_t *model, size_t num);
 void             model_clear_test_outputs(mut_model_t *model);
 void             model_set_test_output(mut_model_t *model, uint16_t output_index);
+void             model_check_parameters(mut_model_t *model);
 
 #endif
