@@ -4,6 +4,8 @@
 #include "view/view.h"
 #include "controller.h"
 #include "storage/disk_op.h"
+#include "log.h"
+#include "minion.h"
 
 
 static void set_test_mode(pman_handle_t handle, uint8_t test_on);
@@ -11,14 +13,16 @@ static void test_output(pman_handle_t handle, uint16_t output_index);
 static void test_output_clear(pman_handle_t handle);
 static void test_pwm(pman_handle_t handle, uint8_t percentage);
 static void save_configuration(pman_handle_t handle);
+static void retry_communication(pman_handle_t handle);
 
 
 view_protocol_t gui_view_protocol = {
-    .set_test_mode      = set_test_mode,
-    .test_output        = test_output,
-    .test_output_clear  = test_output_clear,
-    .test_pwm           = test_pwm,
-    .save_configuration = save_configuration,
+    .set_test_mode       = set_test_mode,
+    .test_output         = test_output,
+    .test_output_clear   = test_output_clear,
+    .test_pwm            = test_pwm,
+    .save_configuration  = save_configuration,
+    .retry_communication = retry_communication,
 };
 
 
@@ -78,4 +82,13 @@ static void test_pwm(pman_handle_t handle, uint8_t percentage) {
 static void save_configuration(pman_handle_t handle) {
     model_t *model = view_get_model(handle);
     disk_op_save_config(&model->config);
+}
+
+
+static void retry_communication(pman_handle_t handle) {
+    log_info("Requesting com retry");
+    minion_retry_communication();
+
+    mut_model_t *model                    = view_get_model(handle);
+    model->run.minion.communication_error = 0;
 }

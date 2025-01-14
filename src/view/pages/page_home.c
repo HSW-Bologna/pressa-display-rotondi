@@ -20,8 +20,6 @@ enum {
 
 struct page_data {
     char *message;
-
-    lv_obj_t *date_time_label;
 };
 
 static void update_page(model_t *model, struct page_data *pdata);
@@ -42,40 +40,60 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    int32_t offsetx = 100;
-    int32_t offsety = 100;
+    int32_t offsetx = 50;
+    int32_t offsety = 30;
+
+    lv_obj_t *obj_background = view_common_gradient_background_create(lv_screen_active());
 
     // create 4 buttons in a 2x2 grid
-    lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
-    lv_obj_t *lbl1 = lv_label_create(btn1);
-    lv_label_set_text(lbl1, "Exe");
-    lv_obj_center(lbl1);
-    lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, offsetx, offsety);
-    view_register_object_default_callback(btn1, EXECUTE_BTN_ID);
+    {
+        LV_IMAGE_DECLARE(img_execute);
+        lv_obj_t *btn1 = lv_btn_create(obj_background);
+        lv_obj_set_size(btn1, 300, 150);
+        lv_obj_t *image = lv_image_create(btn1);
+        lv_image_set_src(image, &img_execute);
+        lv_obj_center(image);
+        lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, offsetx, offsety);
+        view_register_object_default_callback(btn1, EXECUTE_BTN_ID);
+    }
 
-    lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
-    lv_obj_t *lbl2 = lv_label_create(btn2);
-    lv_label_set_text(lbl2, "Config");
-    lv_obj_center(lbl2);
-    lv_obj_align(btn2, LV_ALIGN_TOP_RIGHT, -offsetx, offsety);
-    view_register_object_default_callback(btn2, CONFIG_BTN_ID);
+    {
+        LV_IMAGE_DECLARE(img_programs);
+        lv_obj_t *btn2 = lv_btn_create(obj_background);
+        lv_obj_set_size(btn2, 300, 150);
+        lv_obj_t *image = lv_image_create(btn2);
+        lv_image_set_src(image, &img_programs);
+        lv_obj_center(image);
+        lv_obj_align(btn2, LV_ALIGN_TOP_RIGHT, -offsetx, offsety);
+        view_register_object_default_callback(btn2, CONFIG_BTN_ID);
+    }
 
-    lv_obj_t *btn3 = lv_btn_create(lv_scr_act());
-    lv_obj_t *lbl3 = lv_label_create(btn3);
-    lv_label_set_text(lbl3, "Test");
-    lv_obj_center(lbl3);
-    lv_obj_align(btn3, LV_ALIGN_BOTTOM_LEFT, offsetx, -offsety);
-    view_register_object_default_callback(btn3, TEST_BTN_ID);
+    {
+        LV_IMAGE_DECLARE(img_settings);
+        lv_obj_t *btn3 = lv_btn_create(obj_background);
+        lv_obj_set_size(btn3, 300, 150);
+        lv_obj_t *image = lv_image_create(btn3);
+        lv_image_set_src(image, &img_settings);
+        lv_obj_center(image);
+        lv_obj_align(btn3, LV_ALIGN_BOTTOM_LEFT, offsetx, -offsety);
+        view_register_object_default_callback(btn3, TEST_BTN_ID);
+    }
 
-    lv_obj_t *btn4 = lv_btn_create(lv_scr_act());
-    lv_obj_t *lbl4 = lv_label_create(btn4);
-    lv_label_set_text(lbl4, "Info");
-    lv_obj_center(lbl4);
-    lv_obj_align(btn4, LV_ALIGN_BOTTOM_RIGHT, -offsetx, -offsety);
-    view_register_object_default_callback(btn4, INFO_BTN_ID);
+    {
+        LV_IMAGE_DECLARE(img_info);
+        lv_obj_t *btn4 = lv_btn_create(obj_background);
+        lv_obj_set_size(btn4, 300, 150);
+        lv_obj_t *image = lv_image_create(btn4);
+        lv_image_set_src(image, &img_info);
+        lv_obj_center(image);
+        lv_obj_align(btn4, LV_ALIGN_BOTTOM_RIGHT, -offsetx, -offsety);
+        view_register_object_default_callback(btn4, INFO_BTN_ID);
+    }
 
-    lv_obj_t *datetime_widget = view_common_create_datetime_widget(lv_scr_act(), 0, 0);
-    lv_obj_t *logo_widget     = view_common_create_logo_widget(lv_scr_act());
+    LV_IMAGE_DECLARE(img_rotondi);
+    lv_obj_t *image_logo = lv_image_create(lv_screen_active());
+    lv_image_set_src(image_logo, &img_rotondi);
+    lv_obj_center(image_logo);
 
     update_page(model, pdata);
 }
@@ -84,8 +102,9 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     pman_msg_t msg = PMAN_MSG_NULL;
 
     struct page_data *pdata = state;
-
     mut_model_t *model = view_get_model(handle);
+    (void)pdata;
+    (void)model;
 
     switch (event.tag) {
         case PMAN_EVENT_TAG_USER: {

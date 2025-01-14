@@ -28,6 +28,11 @@ static inline __attribute__((always_inline)) timestamp_t timestamp_interval(time
 }
 
 
+static inline __attribute__((always_inline)) timestamp_t timestamp_since(timestamp_t ts) {
+    return timestamp_interval(timestamp_get(), ts);
+}
+
+
 static inline __attribute__((always_inline)) uint8_t timestamp_is_expired(timestamp_t start, timestamp_t period) {
     return timestamp_is_expired_at(start, timestamp_get(), period);
 }

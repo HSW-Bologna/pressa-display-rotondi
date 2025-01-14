@@ -90,8 +90,8 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             break;
 
                         case BTN_PROGRAM_ID:
-                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE_EXTRA(
-                                &page_execution, (void *)(uintptr_t)view_get_obj_number(target));
+                            model_set_current_program(model, view_get_obj_number(target));
+                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE(&page_execution);
                             break;
 
                         default:

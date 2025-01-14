@@ -11,7 +11,7 @@
 #define APP_CONFIG_IFWIFI           "wlp112s0"
 #define APP_CONFIG_IFETH            "enp109s0"
 #define APP_CONFIG_HTTP_SERVER_PORT 8080
-#define APP_CONFIG_LOG_LEVEL        LOG_DEBUG
+#define APP_CONFIG_LOG_LEVEL        LOG_INFO
 #else
 #define APP_CONFIG_DATA_PATH        "/mnt/data"
 #define APP_CONFIG_IFWIFI           "wlan0"

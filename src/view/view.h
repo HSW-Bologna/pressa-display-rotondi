@@ -15,6 +15,7 @@ typedef struct {
     void (*test_output_clear)(pman_handle_t handle);
     void (*test_pwm)(pman_handle_t handle, uint8_t percentage);
     void (*save_configuration)(pman_handle_t handle);
+    void (*retry_communication)(pman_handle_t handle);
 } view_protocol_t;
 
 typedef enum {

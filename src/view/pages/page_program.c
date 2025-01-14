@@ -14,6 +14,8 @@
 
 enum {
     BTN_BACK_ID,
+    BTN_PROGRAM_NAME_ID,
+    BTN_CHANNEL_NAME_ID,
     BTN_DIGITAL_CHANNEL_1_ID,
     BTN_DIGITAL_CHANNEL_2_ID,
     BTN_DIGITAL_CHANNEL_3_ID,
@@ -38,6 +40,7 @@ enum {
     BTN_SENSOR_LEVEL_1_MOD_ID,
     BTN_SENSOR_LEVEL_2_MOD_ID,
     BTN_SENSOR_LEVEL_3_MOD_ID,
+    KEYBOARD_ID,
     LEFT_PANEL_SCROLL_ID,
     RIGHT_PANEL_SCROLL_ID,
 };
@@ -45,6 +48,8 @@ enum {
 typedef enum {
     STATE_PROGRAM = 0,
     STATE_PARAMETERS,
+    STATE_PROGRAM_NAME,
+    STATE_CHANNEL_NAME,
 } page_program_state_t;
 
 
@@ -59,10 +64,15 @@ struct page_data {
 
     lv_obj_t *button_parameters;
 
+    lv_obj_t *label_program_name;
     lv_obj_t *label_parameters;
     lv_obj_t *label_time_unit;
     lv_obj_t *label_dac_levels[PROGRAM_DAC_LEVELS];
     lv_obj_t *label_sensor_levels[PROGRAM_SENSOR_LEVELS];
+
+    lv_obj_t *textarea;
+
+    lv_obj_t *keyboard;
 
     lv_obj_t *left_panel;
     lv_obj_t *right_panel;
@@ -70,6 +80,7 @@ struct page_data {
     uint16_t                 channel_window_index;
     view_page_program_arg_t *arg;
     page_program_state_t     state;
+    uint16_t                 channel_index;
 };
 
 
@@ -96,7 +107,22 @@ static void open_page(pman_handle_t handle, void *state) {
     model_t         *model   = view_get_model(handle);
     const program_t *program = model_get_program(model, pdata->arg->program_index);
 
-    view_common_title_create(lv_screen_active(), BTN_BACK_ID, program->name);
+    {     // Top bar
+        lv_obj_t *obj_title = view_common_title_create(lv_screen_active(), BTN_BACK_ID, program->name);
+        lv_obj_set_width(obj_title, LV_HOR_RES - 56 * 2 - 8);
+        lv_obj_align(obj_title, LV_ALIGN_TOP_LEFT, 0, 0);
+        pdata->label_program_name = lv_obj_get_child(obj_title, 1);
+
+        {
+            lv_obj_t *button = lv_button_create(lv_screen_active());
+            lv_obj_set_size(button, 56, 56);
+            lv_obj_t *label = lv_label_create(button);
+            lv_label_set_text(label, LV_SYMBOL_EDIT);
+            lv_obj_center(label);
+            lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -64, 4);
+            view_register_object_default_callback(button, BTN_PROGRAM_NAME_ID);
+        }
+    }
 
     lv_obj_t *bottom_container = lv_obj_create(lv_screen_active());
     lv_obj_add_style(bottom_container, &style_transparent_cont, LV_STATE_DEFAULT);
@@ -110,7 +136,7 @@ static void open_page(pman_handle_t handle, void *state) {
 
     lv_obj_t *left_panel = lv_obj_create(bottom_container);
     lv_obj_add_style(left_panel, &style_transparent_cont, LV_STATE_DEFAULT);
-    lv_obj_set_size(left_panel, 100, (40 + 6) * PROGRAM_NUM_CHANNELS);
+    lv_obj_set_size(left_panel, 156, (46 + 6) * PROGRAM_NUM_CHANNELS);
     lv_obj_align(left_panel, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_remove_flag(left_panel, LV_OBJ_FLAG_SNAPPABLE);
 
@@ -128,8 +154,12 @@ static void open_page(pman_handle_t handle, void *state) {
         lv_obj_t *button = lv_button_create(left_panel);
         lv_obj_add_flag(button, LV_OBJ_FLAG_SNAPPABLE);
         lv_obj_remove_flag(button, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-        lv_obj_set_size(button, 96, 40);
+        lv_obj_set_size(button, 152, 46);
+        view_register_object_default_callback_with_number(button, BTN_CHANNEL_NAME_ID, i);
         lv_obj_t *label = lv_label_create(button);
+        lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+        lv_obj_set_width(label, LV_PCT(100));
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
         lv_obj_center(label);
         pdata->label_channels[i] = label;
     }
@@ -140,7 +170,7 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_t *right_panel = lv_obj_create(bottom_container);
     lv_obj_remove_flag(right_panel, LV_OBJ_FLAG_SCROLL_ELASTIC);
     lv_obj_add_style(right_panel, &style_padless_cont, LV_STATE_DEFAULT);
-    lv_obj_set_size(right_panel, LV_HOR_RES - 100, (40 + 6) * PROGRAM_NUM_CHANNELS);
+    lv_obj_set_size(right_panel, LV_HOR_RES - 156, (40 + 6) * PROGRAM_NUM_CHANNELS);
     lv_obj_align(right_panel, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_obj_set_scrollbar_mode(right_panel, LV_SCROLLBAR_MODE_ON);
     lv_obj_set_scroll_dir(right_panel, LV_DIR_HOR);
@@ -157,6 +187,17 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_set_layout(right_panel, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(right_panel, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(right_panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+
+    for (uint16_t i = 0; i < PROGRAM_NUM_TIME_UNITS; i++) {
+        lv_obj_t *line = lv_obj_create(right_panel);
+        lv_obj_add_flag(line, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        lv_obj_set_size(line, 1, LV_PCT(100));
+
+        lv_obj_set_style_border_color(line, lv_color_black(), LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(line, 2, LV_STATE_DEFAULT);
+        lv_obj_add_flag(line, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        lv_obj_align(line, LV_ALIGN_LEFT_MID, 46 * (i + 1) + i, 0);
+    }
 
     for (uint16_t i = 0; i < PROGRAM_NUM_DIGITAL_CHANNELS; i++) {
         lv_obj_t *time_bar = view_common_time_bar_create(right_panel, BTN_DIGITAL_CHANNEL_1_ID + i);
@@ -180,28 +221,47 @@ static void open_page(pman_handle_t handle, void *state) {
         }
     }
 
-    {
+    {     // Parameters and names
         lv_obj_t *blanket = lv_obj_create(lv_screen_active());
+        lv_obj_remove_flag(blanket, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_style(blanket, &style_transparent_cont, LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_opa(blanket, LV_OPA_30, LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(blanket, lv_color_black(), LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(blanket, LV_OPA_50, LV_STATE_DEFAULT);
         lv_obj_set_size(blanket, LV_PCT(100), LV_PCT(100));
         lv_obj_center(blanket);
         pdata->obj_blanket = blanket;
+
+        {
+            lv_obj_t *button = lv_button_create(lv_screen_active());
+            lv_obj_set_size(button, 56, 56);
+            lv_obj_t *label = lv_label_create(button);
+            lv_label_set_text(label, LV_SYMBOL_LEFT LV_SYMBOL_SETTINGS);
+            lv_obj_center(label);
+            pdata->label_parameters = label;
+            view_register_object_default_callback(button, BTN_PARAMETER_ID);
+            pdata->button_parameters = button;
+        }
+
+        {     // Name keyboard
+            lv_obj_t *textarea = lv_textarea_create(blanket);
+            lv_textarea_set_max_length(textarea, PROGRAM_NAME_LENGTH);
+            lv_obj_set_style_text_font(textarea, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+            lv_obj_set_size(textarea, 480, 64);
+            lv_obj_align(textarea, LV_ALIGN_TOP_MID, 0, 80);
+            pdata->textarea = textarea;
+
+            lv_obj_t *keyboard = lv_keyboard_create(blanket);
+            lv_keyboard_set_textarea(keyboard, textarea);
+            lv_obj_set_size(keyboard, LV_PCT(100), 300);
+            lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+            view_register_object_default_callback(keyboard, KEYBOARD_ID);
+            pdata->keyboard = keyboard;
+        }
 
         lv_obj_t *cont = lv_obj_create(blanket);
         lv_obj_set_style_pad_all(cont, 0, LV_STATE_DEFAULT);
         lv_obj_set_size(cont, 600, LV_PCT(100));
         pdata->obj_parameters = cont;
-
-        lv_obj_t *button = lv_button_create(lv_screen_active());
-        lv_obj_set_size(button, 56, 56);
-        lv_obj_t *label = lv_label_create(button);
-        lv_label_set_text(label, LV_SYMBOL_LEFT LV_SYMBOL_SETTINGS);
-        lv_obj_center(label);
-        pdata->label_parameters = label;
-        view_register_object_default_callback(button, BTN_PARAMETER_ID);
-        pdata->button_parameters = button;
-
 
         lv_obj_t *tabview = lv_tabview_create(cont);
         lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
@@ -367,13 +427,31 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             msg.stack_msg = PMAN_STACK_MSG_BACK();
                             break;
 
+                        case BTN_PROGRAM_NAME_ID: {
+                            const program_t *program = model_get_program(model, pdata->arg->program_index);
+                            pdata->state             = STATE_PROGRAM_NAME;
+                            lv_obj_send_event(pdata->textarea, LV_EVENT_FOCUSED, NULL);
+                            lv_textarea_set_text(pdata->textarea, program->name);
+                            update_page(model, pdata);
+                            break;
+                        }
+
+                        case BTN_CHANNEL_NAME_ID: {
+                            pdata->state = STATE_CHANNEL_NAME;
+                            lv_obj_send_event(pdata->textarea, LV_EVENT_FOCUSED, NULL);
+                            pdata->channel_index = view_get_obj_number(target);
+                            lv_textarea_set_text(pdata->textarea, model->config.channel_names[pdata->channel_index]);
+                            update_page(model, pdata);
+                            break;
+                        }
+
                         case BTN_PARAMETER_ID:
                             switch (pdata->state) {
-                                case STATE_PARAMETERS:
-                                    pdata->state = STATE_PROGRAM;
-                                    break;
                                 case STATE_PROGRAM:
                                     pdata->state = STATE_PARAMETERS;
+                                    break;
+                                default:
+                                    pdata->state = STATE_PROGRAM;
                                     break;
                             }
                             update_page(model, pdata);
@@ -436,6 +514,53 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             uint16_t   unit_index = view_get_obj_number(target);
 
                             program_increase_sensor_channel_threshold_at(program, unit_index);
+                            update_page(model, pdata);
+                            break;
+                        }
+
+                        default:
+                            break;
+                    }
+                    break;
+                }
+
+                case LV_EVENT_READY: {
+                    switch (obj_id) {
+                        case KEYBOARD_ID: {
+                            switch (pdata->state) {
+                                case STATE_PROGRAM_NAME: {
+                                    program_t *program = model_get_program_mut(model, pdata->arg->program_index);
+                                    snprintf(program->name, sizeof(program->name), "%s",
+                                             lv_textarea_get_text(pdata->textarea));
+                                    break;
+                                }
+
+                                case STATE_CHANNEL_NAME: {
+                                    snprintf(model->config.channel_names[pdata->channel_index],
+                                             sizeof(model->config.channel_names[pdata->channel_index]), "%s",
+                                             lv_textarea_get_text(pdata->textarea));
+                                    break;
+                                }
+
+                                default:
+                                    break;
+                            }
+
+                            pdata->state = STATE_PROGRAM;
+                            update_page(model, pdata);
+                            break;
+                        }
+
+                        default:
+                            break;
+                    }
+                    break;
+                }
+
+                case LV_EVENT_CANCEL: {
+                    switch (obj_id) {
+                        case KEYBOARD_ID: {
+                            pdata->state = STATE_PROGRAM;
                             update_page(model, pdata);
                             break;
                         }
@@ -523,10 +648,12 @@ static void update_page(model_t *model, struct page_data *pdata) {
             lv_obj_align(pdata->obj_parameters, LV_ALIGN_RIGHT_MID, 600, 0);
             lv_obj_align_to(pdata->button_parameters, pdata->obj_parameters, LV_ALIGN_OUT_LEFT_TOP, 0, 4);
             lv_label_set_text(pdata->label_parameters, LV_SYMBOL_LEFT LV_SYMBOL_SETTINGS);
+            lv_label_set_text(pdata->label_program_name, program->name);
             break;
 
         case STATE_PARAMETERS:
             view_common_set_hidden(pdata->obj_blanket, 0);
+            view_common_set_hidden(pdata->keyboard, 1);
             lv_obj_align(pdata->obj_parameters, LV_ALIGN_RIGHT_MID, 0, 0);
             lv_obj_align_to(pdata->button_parameters, pdata->obj_parameters, LV_ALIGN_OUT_LEFT_TOP, 0, 4);
             lv_label_set_text(pdata->label_parameters, LV_SYMBOL_SETTINGS LV_SYMBOL_RIGHT);
@@ -538,6 +665,15 @@ static void update_page(model_t *model, struct page_data *pdata) {
             for (uint16_t i = 0; i < PROGRAM_SENSOR_LEVELS; i++) {
                 lv_label_set_text_fmt(pdata->label_sensor_levels[i], "%i", program->sensor_levels[i]);
             }
+            break;
+
+        case STATE_PROGRAM_NAME:
+        case STATE_CHANNEL_NAME:
+            view_common_set_hidden(pdata->obj_blanket, 0);
+            view_common_set_hidden(pdata->keyboard, 0);
+            lv_obj_align(pdata->obj_parameters, LV_ALIGN_RIGHT_MID, 600, 0);
+            lv_obj_align_to(pdata->button_parameters, pdata->obj_parameters, LV_ALIGN_OUT_LEFT_TOP, 0, 4);
+            lv_label_set_text(pdata->label_parameters, LV_SYMBOL_LEFT LV_SYMBOL_SETTINGS);
             break;
     }
 }

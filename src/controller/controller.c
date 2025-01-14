@@ -55,7 +55,7 @@ void controller_manage(mut_model_t *model) {
         if (minion_get_response(&response)) {
             switch (response.tag) {
                 case MINION_RESPONSE_TAG_ERROR: {
-                    log_error("Error");
+                    model->run.minion.communication_error = 1;
                     break;
                 }
 
@@ -66,6 +66,8 @@ void controller_manage(mut_model_t *model) {
                     model->run.minion.read.inputs                 = response.as.sync.inputs;
                     model->run.minion.read.v0_10_adc              = response.as.sync.v0_10_adc;
                     model->run.minion.read.ma4_20_adc             = response.as.sync.ma4_20_adc;
+                    model->run.minion.read.running                = response.as.sync.running;
+                    model->run.minion.read.elapsed_milliseconds   = response.as.sync.elapsed_time_ms;
                     break;
                 }
             }
@@ -74,8 +76,8 @@ void controller_manage(mut_model_t *model) {
 
     {
         static timestamp_t ts = 0;
-        if (timestamp_is_expired(ts, 400)) {
-            // controller_sync_minion(model);
+        if (timestamp_is_expired(ts, 200)) {
+            controller_sync_minion(model);
             ts = timestamp_get();
         }
     }
@@ -103,5 +105,7 @@ static void load_programs_callback(model_t *pmodel, void *data, void *arg) {
 
 
 void controller_sync_minion(model_t *model) {
-    minion_sync(model);
+    if (model_is_communication_ok(model)) {
+        minion_sync(model);
+    }
 }

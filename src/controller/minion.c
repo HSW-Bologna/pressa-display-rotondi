@@ -15,11 +15,11 @@
 #include "lightmodbus/lightmodbus.h"
 
 
-#define MODBUS_RESPONSE_03_LEN(data_len)   (5 + data_len * 2)
-#define MODBUS_RESPONSE_05_LEN             8
+#define MODBUS_RESPONSE_04_LEN(data_len)   (5 + data_len * 2)
+#define MODBUS_RESPONSE_16_LEN             8
 #define MODBUS_REQUEST_MESSAGE_QUEUE_SIZE  8
 #define MODBUS_RESPONSE_MESSAGE_QUEUE_SIZE 4
-#define MODBUS_TIMEOUT                     40
+#define MODBUS_TIMEOUT                     30
 #define MODBUS_MAX_PACKET_SIZE             256
 #define MODBUS_COMMUNICATION_ATTEMPTS      3
 
@@ -187,7 +187,7 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
         case TASK_MESSAGE_TAG_SYNC: {
             response.tag = MINION_RESPONSE_TAG_SYNC;
 
-            uint16_t values[6] = {0};
+            uint16_t values[8] = {0};
             if (read_input_registers(master, values, MINION_ADDR, MODBUS_IR_FIRMWARE_VERSION_MAJOR,
                                      sizeof(values) / sizeof(values[0]))) {
                 error = 1;
@@ -198,6 +198,8 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
                 response.as.sync.inputs                 = values[1];
                 response.as.sync.v0_10_adc              = values[2];
                 response.as.sync.ma4_20_adc             = values[4];
+                response.as.sync.running                = values[6];
+                response.as.sync.elapsed_time_ms        = values[7];
             }
 
             if (!error) {
@@ -255,17 +257,23 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
                     ((message.as.sync.dac_channel[20] & 0xF) << 12) | ((message.as.sync.dac_channel[21] & 0xF) << 8) |
                         ((message.as.sync.dac_channel[22] & 0xF) << 4) | (message.as.sync.dac_channel[23] & 0xF),
                     message.as.sync.dac_channel[24],
-                    ((message.as.sync.sensor_channel[0] & 0xF) << 12) | ((message.as.sync.sensor_channel[1] & 0xF) << 8) |
+                    ((message.as.sync.sensor_channel[0] & 0xF) << 12) |
+                        ((message.as.sync.sensor_channel[1] & 0xF) << 8) |
                         ((message.as.sync.sensor_channel[2] & 0xF) << 4) | (message.as.sync.sensor_channel[3] & 0xF),
-                    ((message.as.sync.sensor_channel[4] & 0xF) << 12) | ((message.as.sync.sensor_channel[5] & 0xF) << 8) |
+                    ((message.as.sync.sensor_channel[4] & 0xF) << 12) |
+                        ((message.as.sync.sensor_channel[5] & 0xF) << 8) |
                         ((message.as.sync.sensor_channel[6] & 0xF) << 4) | (message.as.sync.sensor_channel[7] & 0xF),
-                    ((message.as.sync.sensor_channel[8] & 0xF) << 12) | ((message.as.sync.sensor_channel[9] & 0xF) << 8) |
+                    ((message.as.sync.sensor_channel[8] & 0xF) << 12) |
+                        ((message.as.sync.sensor_channel[9] & 0xF) << 8) |
                         ((message.as.sync.sensor_channel[10] & 0xF) << 4) | (message.as.sync.sensor_channel[11] & 0xF),
-                    ((message.as.sync.sensor_channel[12] & 0xF) << 12) | ((message.as.sync.sensor_channel[13] & 0xF) << 8) |
+                    ((message.as.sync.sensor_channel[12] & 0xF) << 12) |
+                        ((message.as.sync.sensor_channel[13] & 0xF) << 8) |
                         ((message.as.sync.sensor_channel[14] & 0xF) << 4) | (message.as.sync.sensor_channel[15] & 0xF),
-                    ((message.as.sync.sensor_channel[16] & 0xF) << 12) | ((message.as.sync.sensor_channel[17] & 0xF) << 8) |
+                    ((message.as.sync.sensor_channel[16] & 0xF) << 12) |
+                        ((message.as.sync.sensor_channel[17] & 0xF) << 8) |
                         ((message.as.sync.sensor_channel[18] & 0xF) << 4) | (message.as.sync.sensor_channel[19] & 0xF),
-                    ((message.as.sync.sensor_channel[20] & 0xF) << 12) | ((message.as.sync.sensor_channel[21] & 0xF) << 8) |
+                    ((message.as.sync.sensor_channel[20] & 0xF) << 12) |
+                        ((message.as.sync.sensor_channel[21] & 0xF) << 8) |
                         ((message.as.sync.sensor_channel[22] & 0xF) << 4) | (message.as.sync.sensor_channel[23] & 0xF),
                     message.as.sync.sensor_channel[24],
                 };
@@ -338,7 +346,7 @@ static ModbusError exception_callback(const ModbusMaster *master, uint8_t addres
 
 static int write_holding_registers(ModbusMaster *master, uint8_t address, uint16_t starting_address, uint16_t *data,
                                    size_t num) {
-    uint8_t buffer[MODBUS_MAX_PACKET_SIZE] = {0};
+    uint8_t buffer[MODBUS_RESPONSE_16_LEN] = {0};
     int     res                            = 0;
     size_t  counter                        = 0;
 
@@ -432,7 +440,7 @@ static int read_input_registers(ModbusMaster *master, uint16_t *registers, uint8
 
         bsp_rs232_write((uint8_t *)modbusMasterGetRequest(master), modbusMasterGetRequestLength(master));
 
-        int len = bsp_rs232_read(buffer, sizeof(buffer));
+        int len = bsp_rs232_read(buffer, MODBUS_RESPONSE_04_LEN(count));
         err     = modbusParseResponseRTU(master, modbusMasterGetRequest(master), modbusMasterGetRequestLength(master),
                                          buffer, len);
 

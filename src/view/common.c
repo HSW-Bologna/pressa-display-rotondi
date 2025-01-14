@@ -17,6 +17,44 @@ void view_common_set_hidden(lv_obj_t *obj, uint8_t hidden) {
 }
 
 
+communication_error_popup_t view_common_communication_error_popup(lv_obj_t *parent) {
+    lv_obj_t *blanket = lv_obj_create(parent);
+    lv_obj_add_style(blanket, &style_transparent_cont, LV_STATE_DEFAULT);
+    lv_obj_set_size(blanket, LV_PCT(100), LV_PCT(100));
+
+    lv_obj_t *cont = lv_obj_create(blanket);
+    lv_obj_set_size(cont, LV_PCT(80), LV_PCT(80));
+    lv_obj_center(cont);
+
+    lv_obj_t *lbl_msg = lv_label_create(cont);
+    lv_label_set_long_mode(lbl_msg, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(lbl_msg, LV_PCT(95));
+    // lv_label_set_text(lbl_msg, view_intl_get_string(model, STRINGS_ERRORE_DI_COMUNICAZIONE));
+    lv_obj_align(lbl_msg, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_t *btn = lv_button_create(cont);
+    lv_obj_set_size(btn, 104, 48);
+    lv_obj_t *lbl_retry = lv_label_create(btn);
+    lv_obj_center(lbl_retry);
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+    lv_obj_t *btn_disable = lv_button_create(cont);
+    lv_obj_set_size(btn_disable, 104, 48);
+    lv_obj_t *lbl_disable = lv_label_create(btn_disable);
+    lv_obj_center(lbl_disable);
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+    return (communication_error_popup_t){
+        .blanket     = blanket,
+        .btn_retry   = btn,
+        .btn_disable = btn_disable,
+        .lbl_msg     = lbl_msg,
+        .lbl_retry   = lbl_retry,
+        .lbl_disable = lbl_disable,
+    };
+}
+
+
 lv_obj_t *view_common_create_datetime_widget(lv_obj_t *parent, lv_coord_t x, lv_coord_t y) {
     lv_obj_t *cont = lv_obj_create(parent);
     lv_obj_set_size(cont, 160, 50);
@@ -98,9 +136,10 @@ lv_obj_t *view_common_title_create(lv_obj_t *parent, uint16_t back_id, const cha
     view_register_object_default_callback(button, back_id);
 
     lv_obj_t *label_title = lv_label_create(cont);
+    lv_obj_set_style_text_font(label_title, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
     lv_label_set_long_mode(label_title, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(label_title, LV_HOR_RES - 64 - 24);
-    lv_obj_align(label_title, LV_ALIGN_RIGHT_MID, -8, 0);
+    lv_obj_set_width(label_title, LV_HOR_RES - 64 - 128 -8);
+    lv_obj_align(label_title, LV_ALIGN_LEFT_MID, 64+8, 0);
     lv_label_set_text(label_title, text);
 
     lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 0);
@@ -115,12 +154,11 @@ lv_obj_t *view_common_time_bar_create(lv_obj_t *parent, uint16_t id) {
 
     lv_obj_set_style_pad_column(cont, 1, LV_STATE_DEFAULT);
     lv_obj_set_style_pad_row(cont, 0, LV_STATE_DEFAULT);
-    lv_obj_set_size(cont, PROGRAM_NUM_TIME_UNITS * 41, 40);
+    lv_obj_set_size(cont, PROGRAM_NUM_TIME_UNITS * 47, 46);
 
     lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-
 
     for (uint16_t i = 0; i < PROGRAM_NUM_TIME_UNITS; i++) {
         lv_obj_t *unit = lv_button_create(cont);
@@ -129,10 +167,30 @@ lv_obj_t *view_common_time_bar_create(lv_obj_t *parent, uint16_t id) {
         lv_obj_add_style(unit, &style_time_unit, LV_STATE_DEFAULT);
         lv_obj_set_style_border_post(unit, 0, LV_STATE_DEFAULT);
         lv_obj_set_style_shadow_opa(unit, LV_OPA_TRANSP, LV_STATE_DEFAULT);
-        lv_obj_set_height(unit, 40);
-        lv_obj_set_flex_grow(unit, 1);
+        lv_obj_set_height(unit, 46);
+        lv_obj_set_width(unit, 46);
+        // lv_obj_set_flex_grow(unit, 1);
         view_register_object_default_callback_with_number(unit, id, i);
+
+        lv_obj_t *label = lv_label_create(unit);
+        lv_label_set_text_fmt(label, "%i", i + 1);
+        lv_obj_center(label);
     }
 
     return cont;
+}
+
+
+lv_obj_t *view_common_gradient_background_create(lv_obj_t *parent) {
+    lv_obj_t *obj = lv_obj_create(parent);
+    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(100));
+
+    lv_obj_set_style_bg_grad_color(obj, lv_color_lighten(STYLE_COLOR_PRIMARY, LV_OPA_50), 0);
+    lv_obj_set_style_bg_color(obj, lv_color_white(), 0);
+    lv_obj_set_style_bg_grad_dir(obj, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_radius(obj, 0, 0);
+    lv_obj_set_style_border_width(obj, 0, 0);
+    lv_obj_set_style_pad_all(obj, 0, 0);
+
+    return obj;
 }

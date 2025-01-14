@@ -50,12 +50,13 @@ typedef struct {
 
         // size_t  num_drive_machines;
         // name_t *drive_machines;
-        uint8_t drive_mounted;
-        uint8_t firmware_update_ready;
     } system;
 
     struct {
         struct {
+            uint8_t communication_error;
+            uint8_t communication_enabled;
+
             struct {
                 uint16_t firmware_version_major;
                 uint16_t firmware_version_minor;
@@ -63,6 +64,7 @@ typedef struct {
                 uint16_t inputs;
                 uint16_t ma4_20_adc;
                 uint16_t v0_10_adc;
+                uint8_t  running;
                 uint16_t elapsed_milliseconds;
             } read;
 
@@ -74,6 +76,8 @@ typedef struct {
         } minion;
 
         int16_t current_program_index;
+        uint8_t drive_mounted;
+        uint8_t firmware_update_ready;
     } run;
 } mut_model_t;
 
@@ -90,5 +94,9 @@ void             model_set_test_output(mut_model_t *model, uint16_t output_index
 void             model_check_parameters(mut_model_t *model);
 uint8_t          model_is_program_ready(model_t *model);
 const program_t *model_get_current_program(model_t *model);
+void             model_clear_current_program(mut_model_t *model);
+void             model_set_current_program(mut_model_t *model, uint16_t current_program_index);
+uint8_t          model_is_communication_ok(model_t *model);
+void             model_copy_program(mut_model_t *model, uint16_t source_index, uint16_t destination_index);
 
 #endif

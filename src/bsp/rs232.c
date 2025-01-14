@@ -21,16 +21,17 @@ static int port_fd = 0;
 
 
 void bsp_rs232_init(void) {
-    if ((port_fd = open_tty("/dev/ttyUSB0")) > 0) {
+    if ((port_fd = open_tty("/dev/ttyAMA0")) > 0) {
+        printf("Porta trovata\n");
+        setup_port(port_fd);
+    } else if ((port_fd = open_tty("/dev/ttyUSB0")) > 0) {
+        printf("Porta trovata\n");
+        setup_port(port_fd);
+    } else if ((port_fd = open_tty("/dev/ttyUSB1")) > 0) {
         printf("Porta trovata\n");
         setup_port(port_fd);
     } else {
-        if ((port_fd = open_tty("/dev/ttyUSB1")) > 0) {
-            printf("Porta trovata\n");
-            setup_port(port_fd);
-        } else {
-            printf("Porta non trovata\n");
-        }
+        printf("Porta non trovata\n");
     }
 }
 

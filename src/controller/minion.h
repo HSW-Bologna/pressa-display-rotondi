@@ -22,13 +22,14 @@ typedef struct {
             uint16_t inputs;
             uint16_t v0_10_adc;
             uint16_t ma4_20_adc;
+            uint8_t  running;
+            uint16_t elapsed_time_ms;
         } sync;
     } as;
 } minion_response_t;
 
 
 void    minion_init(void);
-void    minion_read_state(model_t *model);
 void    minion_sync(model_t *model);
 uint8_t minion_get_response(minion_response_t *response);
 void    minion_retry_communication(void);

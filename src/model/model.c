@@ -19,7 +19,9 @@ void model_init(mut_model_t *model) {
         snprintf(model->config.channel_names[i], sizeof(model->config.channel_names[i]), "CH %i", i + 1);
     }
 
-    model->run.current_program_index = -1;
+    model->run.current_program_index        = -1;
+    model->run.minion.communication_enabled = 1;
+    model->run.minion.communication_error   = 0;
 }
 
 
@@ -45,6 +47,12 @@ void model_check_parameters(mut_model_t *model) {
 size_t model_get_num_programs(model_t *model) {
     assert(model != NULL);
     return 0;
+}
+
+
+void model_copy_program(mut_model_t *model, uint16_t source_index, uint16_t destination_index) {
+    assert(model != NULL);
+    model->config.programs[destination_index] = model->config.programs[source_index];
 }
 
 
@@ -81,6 +89,18 @@ void model_set_test_output(mut_model_t *model, uint16_t output_index) {
 }
 
 
+void model_clear_current_program(mut_model_t *model) {
+    assert(model != NULL);
+    model->run.current_program_index = -1;
+}
+
+
+void model_set_current_program(mut_model_t *model, uint16_t current_program_index) {
+    assert(model != NULL);
+    model->run.current_program_index = current_program_index;
+}
+
+
 uint8_t model_is_program_ready(model_t *model) {
     assert(model != NULL);
 
@@ -97,4 +117,11 @@ const program_t *model_get_current_program(model_t *model) {
         static program_t program = {0};
         return &program;
     }
+}
+
+
+uint8_t model_is_communication_ok(model_t *model) {
+    assert(model != NULL);
+    
+    return model->run.minion.communication_enabled && !model->run.minion.communication_error;
 }
