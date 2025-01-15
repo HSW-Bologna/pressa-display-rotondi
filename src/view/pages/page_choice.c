@@ -36,24 +36,29 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t *model = view_get_model(handle);
 
-    lv_obj_t *cont = lv_obj_create(lv_screen_active());
+    view_common_title_create(lv_screen_active(), BTN_BACK_ID, "Selezionare programma");
 
-    lv_obj_set_style_pad_column(cont, 6, LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_row(cont, 6, LV_STATE_DEFAULT);
-    lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
+    lv_obj_t *cont = lv_obj_create(lv_screen_active());
+    lv_obj_remove_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_size(cont, LV_HOR_RES - 16, LV_VER_RES - 64 - 16);
+    lv_obj_align(cont, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_set_style_pad_column(cont, 8, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_row(cont, 8, LV_STATE_DEFAULT);
     lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN_WRAP);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_align(cont, LV_ALIGN_CENTER, 0, 0);
 
     for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
         lv_obj_t *button = lv_button_create(cont);
+        lv_obj_set_size(button, 240, 48);
         lv_obj_t *label  = lv_label_create(button);
+        lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
+        lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+        lv_obj_set_width(label, LV_PCT(100));
         lv_label_set_text(label, model->config.programs[i].name);
         view_register_object_default_callback_with_number(button, BTN_PROGRAM_ID, i);
     }
-
-    view_common_back_button_create(lv_screen_active(), BTN_BACK_ID);
 
     update_page(model, pdata);
 }

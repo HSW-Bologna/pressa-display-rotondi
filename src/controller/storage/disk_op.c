@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <poll.h>
 #include <errno.h>
 #include <string.h>
@@ -51,6 +52,7 @@ typedef struct {
 typedef enum {
     DISK_OP_MESSAGE_TAG_LOAD_CONFIG,
     DISK_OP_MESSAGE_TAG_SAVE_CONFIG,
+    DISK_OP_MESSAGE_TAG_EXPORT_CONFIG,
     DISK_OP_MESSAGE_TAG_SAVE_WIFI_CONFIG,
     DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE,
 } task_request_tag_t;
@@ -65,6 +67,9 @@ typedef struct {
         struct {
             configuration_t *config;
         } save_config;
+        struct {
+            const char *name;
+        } export_config;
     } as;
 } task_request_t;
 
@@ -103,6 +108,18 @@ void disk_op_save_config(const configuration_t *config) {
 }
 
 
+void disk_op_export_config(const char *name) {
+    const char *name_copy = strdup(name);
+    assert(name_copy != NULL);
+
+    task_request_t msg = {
+        .tag = DISK_OP_MESSAGE_TAG_EXPORT_CONFIG,
+        .as  = {.export_config = {.name = name_copy}},
+    };
+    socketq_send(&requestq, (uint8_t *)&msg);
+}
+
+
 void disk_op_load_config(void) {
     simple_request(DISK_OP_MESSAGE_TAG_LOAD_CONFIG);
 }
@@ -126,6 +143,34 @@ int disk_op_is_drive_mounted(void) {
 }
 
 
+void disk_op_update_importable_configurations(mut_model_t *model) {
+    free(model->run.importable_configurations);
+    model->run.importable_configurations = 0;
+    DIR           *d;
+    struct dirent *dir;
+    d = opendir(APP_CONFIG_DRIVE_MOUNT_PATH);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (dir->d_type == DT_REG) {
+                char *extension = strstr(dir->d_name, APP_CONFIG_CONFIGURATION_EXTENSION);
+                if (strlen(extension) == strlen(APP_CONFIG_CONFIGURATION_EXTENSION)) {
+                    uint16_t i = model->run.num_importable_configurations;
+
+                    model->run.num_importable_configurations++;
+                    model->run.importable_configurations =
+                        realloc(model->run.importable_configurations,
+                                sizeof(char *) * model->run.num_importable_configurations);
+                    assert(model->run.importable_configurations);
+
+                    model->run.importable_configurations[i] = strdup(dir->d_name);
+                }
+            }
+        }
+        closedir(d);
+    }
+}
+
+
 uint8_t disk_op_get_response(disk_op_response_t *response) {
     task_response_t task_response = {0};
 
@@ -133,12 +178,11 @@ uint8_t disk_op_get_response(disk_op_response_t *response) {
         if (task_response.callback) {
             task_response.callback(task_response.error, task_response.data, task_response.arg);
         }
-        if (task_response.payload) {
-            if (task_response.error) {
-                response->tag = DISK_OP_RESPONSE_TAG_ERROR;
-            } else {
-                *response = task_response.response;
-            }
+        if (task_response.error) {
+            response->tag = DISK_OP_RESPONSE_TAG_ERROR;
+            return 1;
+        } else if (task_response.payload) {
+            *response = task_response.response;
             return 1;
         } else {
             return 0;
@@ -175,6 +219,27 @@ static void *disk_interaction_task(void *args) {
                     free(msg.as.save_config.config);
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
+
+                case DISK_OP_MESSAGE_TAG_EXPORT_CONFIG: {
+                    response.payload                                 = 1;
+                    response.response.tag                            = DISK_OP_RESPONSE_TAG_CONFIGURATION_EXPORTED;
+                    size_t len = strlen(APP_CONFIG_DRIVE_MOUNT_PATH) + strlen(msg.as.export_config.name) +
+                                 strlen(APP_CONFIG_CONFIGURATION_EXTENSION) + 5;
+
+                    char *path = malloc(len);
+                    assert(path);
+
+                    snprintf(path, len, "%s/%s%s", APP_CONFIG_DRIVE_MOUNT_PATH, msg.as.export_config.name,
+                             APP_CONFIG_CONFIGURATION_EXTENSION);
+
+                    log_info("Exporting " APP_CONFIG_CONFIGURATION_PATH " to %s", path);
+                    response.error = storage_copy_file(path, APP_CONFIG_CONFIGURATION_PATH);
+                    free((void *)msg.as.export_config.name);
+                    free(path);
+
+                    socketq_send(&responseq, (uint8_t *)&response);
+                    break;
+                }
 
                 case DISK_OP_MESSAGE_TAG_LOAD_CONFIG:
                     response.payload                                 = 1;

@@ -34,7 +34,6 @@
 
 static int is_drive(const char *path);
 static int dir_exists(char *name);
-static int copy_file(const char *to, const char *from);
 static int read_exactly(uint8_t *buffer, size_t length, FILE *fp);
 static int write_exactly(const uint8_t *buffer, size_t length, FILE *fp);
 static int is_dir(const char *path);
@@ -215,7 +214,6 @@ int storage_save_configuration(const char *path, const configuration_t *config) 
 }
 
 
-
 char *storage_read_file(char *name) {
     unsigned long size = 0;
     char         *r    = NULL;
@@ -344,7 +342,7 @@ int storage_update_temporary_firmware(char *app_path, char *temporary_path) {
             return -1;
         }
 
-        if ((res = copy_file(temporary_path, app_path)) < 0)
+        if ((res = storage_copy_file(temporary_path, app_path)) < 0)
             log_error("Non sono riuscito ad aggiornare il firmware");
 
         if (mount("/dev/root", "/", "ext2", MS_REMOUNT | MS_RDONLY, NULL) < 0)
@@ -426,7 +424,7 @@ void storage_create_dir(char *name) {
 }
 
 
-static int copy_file(const char *to, const char *from) {
+int storage_copy_file(const char *to, const char *from) {
     int     fd_to, fd_from;
     char    buf[4096];
     ssize_t nread;

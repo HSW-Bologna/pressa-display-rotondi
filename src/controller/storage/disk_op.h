@@ -11,6 +11,7 @@ typedef void (*disk_op_callback_t)(uint8_t error, void *data, void *arg);
 typedef enum {
     DISK_OP_RESPONSE_TAG_ERROR,
     DISK_OP_RESPONSE_TAG_CONFIGURATION_LOADED,
+    DISK_OP_RESPONSE_TAG_CONFIGURATION_EXPORTED,
 } disk_op_response_tag_t;
 
 
@@ -33,5 +34,7 @@ void    disk_op_read_file(void);
 int     disk_op_is_drive_mounted(void);
 int     disk_op_is_firmware_present(void);
 void    disk_op_firmware_update(void);
+void    disk_op_export_config(const char *name);
+void    disk_op_update_importable_configurations(mut_model_t *model);
 
 #endif

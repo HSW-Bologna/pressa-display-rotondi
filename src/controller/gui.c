@@ -14,15 +14,17 @@ static void test_output_clear(pman_handle_t handle);
 static void test_pwm(pman_handle_t handle, uint8_t percentage);
 static void save_configuration(pman_handle_t handle);
 static void retry_communication(pman_handle_t handle);
+static void export_configuration(pman_handle_t handle, const char *name);
 
 
 view_protocol_t gui_view_protocol = {
-    .set_test_mode       = set_test_mode,
-    .test_output         = test_output,
-    .test_output_clear   = test_output_clear,
-    .test_pwm            = test_pwm,
-    .save_configuration  = save_configuration,
-    .retry_communication = retry_communication,
+    .set_test_mode        = set_test_mode,
+    .test_output          = test_output,
+    .test_output_clear    = test_output_clear,
+    .test_pwm             = test_pwm,
+    .save_configuration   = save_configuration,
+    .export_configuration = export_configuration,
+    .retry_communication  = retry_communication,
 };
 
 
@@ -82,6 +84,12 @@ static void test_pwm(pman_handle_t handle, uint8_t percentage) {
 static void save_configuration(pman_handle_t handle) {
     model_t *model = view_get_model(handle);
     disk_op_save_config(&model->config);
+}
+
+
+static void export_configuration(pman_handle_t handle, const char *name) {
+    (void)handle;
+    disk_op_export_config(name);
 }
 
 

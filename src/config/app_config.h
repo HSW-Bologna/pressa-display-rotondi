@@ -22,10 +22,11 @@
 
 #define APP_CONFIG_DATA_VERSION 1
 
-#define APP_CONFIG_CONFIGURATION_PATH APP_CONFIG_DATA_PATH "/configuration.bin"
-#define APP_CONFIG_DRIVE_MOUNT_PATH   "/tmp/mnt"
-#define APP_CONFIG_LOGFILE            "/tmp/pressa_log.txt"
-#define MAX_LOGFILE_SIZE              4000000UL
+#define APP_CONFIG_CONFIGURATION_EXTENSION ".pressa.bin"
+#define APP_CONFIG_CONFIGURATION_PATH      APP_CONFIG_DATA_PATH "/configurazione" APP_CONFIG_CONFIGURATION_EXTENSION
+#define APP_CONFIG_DRIVE_MOUNT_PATH        "/tmp/mnt"
+#define APP_CONFIG_LOGFILE                 "/tmp/pressa_log.txt"
+#define MAX_LOGFILE_SIZE                   4000000UL
 
 #define APP_CONFIG_MIN_TIME_UNIT_DECISECS 5
 #define APP_CONFIG_MAX_TIME_UNIT_DECISECS 20

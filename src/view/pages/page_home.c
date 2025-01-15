@@ -102,7 +102,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
     pman_msg_t msg = PMAN_MSG_NULL;
 
     struct page_data *pdata = state;
-    mut_model_t *model = view_get_model(handle);
+    mut_model_t      *model = view_get_model(handle);
     (void)pdata;
     (void)model;
 
@@ -139,8 +139,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             break;
 
                         case INFO_BTN_ID:
-                            // msg.stack_msg.tag                 = PMAN_STACK_MSG_TAG_PUSH_PAGE;
-                            // msg.stack_msg.as.destination.page = (void *)&page_info;
+                            msg.stack_msg = PMAN_STACK_MSG_PUSH_PAGE(&page_info);
                             break;
 
                         default:

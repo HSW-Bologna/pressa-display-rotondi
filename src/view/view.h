@@ -16,6 +16,7 @@ typedef struct {
     void (*test_pwm)(pman_handle_t handle, uint8_t percentage);
     void (*save_configuration)(pman_handle_t handle);
     void (*retry_communication)(pman_handle_t handle);
+    void (*export_configuration)(pman_handle_t handle, const char *name);
 } view_protocol_t;
 
 typedef enum {
@@ -52,10 +53,12 @@ void             view_add_watched_variable(void *ptr, size_t size, int code);
 void             view_manage(model_t *model);
 uint16_t         view_get_obj_id(lv_obj_t *obj);
 uint16_t         view_get_obj_number(lv_obj_t *obj);
+void             view_show_toast(uint8_t error, const char *fmt, ...);
 
 
 extern const pman_page_t page_home, page_info, page_settings_home, page_programs_home, page_execution_home,
-    page_execution_programs, page_programs_setup, page_test, page_config, page_program, page_choice, page_execution;
+    page_execution_programs, page_programs_setup, page_test, page_config, page_program, page_choice, page_execution,
+    page_info;
 
 
 #endif

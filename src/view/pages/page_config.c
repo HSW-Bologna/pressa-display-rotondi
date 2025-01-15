@@ -20,9 +20,13 @@ enum {
     BTN_MOD_HEADGAP_OFFSET_DOWN_ID,
     BTN_COMMUNICATION_ID,
     BTN_COPY_ID,
+    BTN_EXPORT_ID,
+    KEYBOARD_ID,
 };
 
 struct page_data {
+    lv_obj_t *obj_blanket;
+
     lv_obj_t *label_headgap_offset_up;
     lv_obj_t *label_headgap_offset_down;
     lv_obj_t *label_operation;
@@ -32,6 +36,10 @@ struct page_data {
     lv_obj_t *button_export;
     lv_obj_t *buttons_programs[NUM_PROGRAMS];
 
+    lv_obj_t *textarea;
+
+    lv_obj_t *keyboard;
+
     lv_obj_t *label_status;
 
     lv_obj_t *led_communication;
@@ -39,7 +47,12 @@ struct page_data {
     uint8_t                 modified;
     view_page_program_arg_t page_program_arg;
 
-    enum { OPERATION_NONE = 0, OPERATION_COPY } operation;
+    enum {
+        OPERATION_NONE = 0,
+        OPERATION_COPY,
+        OPERATION_IMPORT,
+        OPERATION_EXPORT,
+    } operation;
     int16_t program_index;
 };
 
@@ -66,6 +79,7 @@ static void open_page(pman_handle_t handle, void *state) {
     model_t *model = view_get_model(handle);
 
     lv_obj_t *tabview = lv_tabview_create(lv_screen_active());
+    lv_obj_set_style_text_font(tabview, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
     lv_obj_t *tab_bar = lv_tabview_get_tab_bar(tabview);
     lv_obj_set_style_pad_left(tab_bar, 64, LV_STATE_DEFAULT);
 
@@ -76,6 +90,7 @@ static void open_page(pman_handle_t handle, void *state) {
 
     {
         lv_obj_t *tab = lv_tabview_add_tab(tabview, "Programmi");
+        lv_obj_set_style_text_font(tab, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
         lv_obj_set_style_pad_ver(tab, 10, LV_STATE_DEFAULT);
 
         {
@@ -143,8 +158,9 @@ static void open_page(pman_handle_t handle, void *state) {
                 lv_obj_t *label = lv_label_create(button);
                 lv_obj_center(label);
                 lv_obj_set_style_text_font(label, STYLE_FONT_BIG, LV_STATE_DEFAULT);
-                lv_label_set_text(label, LV_SYMBOL_DRIVE);
-                pdata->button_import = button;
+                view_register_object_default_callback(button, BTN_EXPORT_ID);
+                lv_label_set_text(label, LV_SYMBOL_DOWNLOAD);
+                pdata->button_export = button;
             }
 
             {     // Export button
@@ -155,7 +171,7 @@ static void open_page(pman_handle_t handle, void *state) {
                 lv_obj_center(label);
                 lv_obj_set_style_text_font(label, STYLE_FONT_BIG, LV_STATE_DEFAULT);
                 lv_label_set_text(label, LV_SYMBOL_EJECT);
-                pdata->button_export = button;
+                pdata->button_import = button;
             }
 
             lv_obj_t *label = lv_label_create(cont);
@@ -167,6 +183,7 @@ static void open_page(pman_handle_t handle, void *state) {
 
     {
         lv_obj_t *tab = lv_tabview_add_tab(tabview, "Parametri");
+        lv_obj_set_style_text_font(tab, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
 
         {     // Headgap offset
             lv_obj_t *headgap_offset_cont = lv_obj_create(tab);
@@ -260,6 +277,34 @@ static void open_page(pman_handle_t handle, void *state) {
         }
     }
 
+    {     // Export name input
+        lv_obj_t *blanket = lv_obj_create(lv_screen_active());
+        lv_obj_remove_flag(blanket, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_style(blanket, &style_transparent_cont, LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(blanket, lv_color_black(), LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(blanket, LV_OPA_50, LV_STATE_DEFAULT);
+        lv_obj_set_size(blanket, LV_PCT(100), LV_PCT(100));
+        lv_obj_center(blanket);
+        pdata->obj_blanket = blanket;
+
+        lv_obj_t *textarea = lv_textarea_create(blanket);
+        lv_obj_set_style_text_font(textarea, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+        lv_obj_set_size(textarea, 480, 64);
+        lv_obj_align(textarea, LV_ALIGN_TOP_MID, 0, 80);
+        pdata->textarea = textarea;
+
+        lv_obj_t *keyboard = lv_keyboard_create(blanket);
+        lv_keyboard_set_textarea(keyboard, textarea);
+        lv_obj_set_size(keyboard, LV_PCT(100), 300);
+        lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+        view_register_object_default_callback(keyboard, KEYBOARD_ID);
+        pdata->keyboard = keyboard;
+    }
+
+    VIEW_ADD_WATCHED_VARIABLE(&model->run.drive_mounted, 0);
+    VIEW_ADD_WATCHED_VARIABLE(&model->run.num_importable_configurations, 0);
+    VIEW_ADD_WATCHED_VARIABLE(&model->run.importable_configurations, 0);
+
     update_page(model, pdata);
 }
 
@@ -277,6 +322,9 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
             view_event_t *view_event = event.as.user;
             switch (view_event->tag) {
                 case VIEW_EVENT_TAG_STORAGE_OPERATION_COMPLETED:
+                    break;
+                case VIEW_EVENT_TAG_PAGE_WATCHER:
+                    update_page(model, pdata);
                     break;
                 default:
                     break;
@@ -343,8 +391,43 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
 
                         case BTN_COPY_ID:
                             pdata->operation = OPERATION_COPY;
+                            update_page(model, pdata);
                             break;
 
+                        case BTN_EXPORT_ID:
+                            pdata->operation = OPERATION_EXPORT;
+                            lv_textarea_set_text(pdata->textarea, "configurazione");
+                            update_page(model, pdata);
+                            break;
+
+                        default:
+                            break;
+                    }
+                    break;
+                }
+
+                case LV_EVENT_READY: {
+                    switch (view_get_obj_id(target)) {
+                        case KEYBOARD_ID: {
+                            view_get_protocol(handle)->export_configuration(handle,
+                                                                            lv_textarea_get_text(pdata->textarea));
+                            pdata->operation = OPERATION_NONE;
+                            update_page(model, pdata);
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                    break;
+                }
+
+                case LV_EVENT_CANCEL: {
+                    switch (view_get_obj_id(target)) {
+                        case KEYBOARD_ID: {
+                            pdata->operation = OPERATION_NONE;
+                            update_page(model, pdata);
+                            break;
+                        }
                         default:
                             break;
                     }
@@ -354,6 +437,7 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                 default:
                     break;
             }
+
 
             break;
         }
@@ -400,7 +484,13 @@ static void update_page(model_t *model, struct page_data *pdata) {
             lv_obj_add_state(pdata->button_copy, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_import, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_export, LV_STATE_CHECKED);
+            view_common_set_hidden(pdata->obj_blanket, 1);
             break;
+
+        case OPERATION_EXPORT: {
+            view_common_set_hidden(pdata->obj_blanket, 0);
+            break;
+        }
 
         default:
             for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
@@ -408,6 +498,7 @@ static void update_page(model_t *model, struct page_data *pdata) {
             }
 
             view_common_set_hidden(pdata->label_status, 1);
+            view_common_set_hidden(pdata->obj_blanket, 1);
             lv_obj_remove_state(pdata->button_copy, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_import, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_export, LV_STATE_CHECKED);
@@ -415,8 +506,13 @@ static void update_page(model_t *model, struct page_data *pdata) {
     }
 
     if (model->run.drive_mounted) {
-        lv_obj_remove_state(pdata->button_import, LV_STATE_DISABLED);
         lv_obj_remove_state(pdata->button_export, LV_STATE_DISABLED);
+
+        if (model->run.num_importable_configurations == 0) {
+            lv_obj_add_state(pdata->button_import, LV_STATE_DISABLED);
+        } else {
+            lv_obj_remove_state(pdata->button_import, LV_STATE_DISABLED);
+        }
     } else {
         lv_obj_add_state(pdata->button_import, LV_STATE_DISABLED);
         lv_obj_add_state(pdata->button_export, LV_STATE_DISABLED);

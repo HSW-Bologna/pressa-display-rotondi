@@ -35,7 +35,8 @@ void controller_init(mut_model_t *model) {
                 model_check_parameters(model);
                 log_info("Configuration loaded!");
             } else {
-                log_warn("Could not load configuration (%i)", response.tag);
+                disk_op_save_config(&model->config);
+                view_show_toast(1, "Non sono riuscito a caricare una configurazione!");
             }
             break;
         } else {
@@ -75,9 +76,35 @@ void controller_manage(mut_model_t *model) {
     }
 
     {
+        disk_op_response_t response = {0};
+        if (disk_op_get_response(&response)) {
+            switch (response.tag) {
+                case DISK_OP_RESPONSE_TAG_ERROR:
+                    view_show_toast(1, "Operazione su disco fallita!");
+                    break;
+
+                case DISK_OP_RESPONSE_TAG_CONFIGURATION_EXPORTED:
+                    disk_op_update_importable_configurations(model);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    {
         static timestamp_t ts = 0;
         if (timestamp_is_expired(ts, 200)) {
             controller_sync_minion(model);
+
+            uint8_t drive_mounted = disk_op_is_drive_mounted();
+
+            if (drive_mounted && !model->run.drive_mounted) {
+                disk_op_update_importable_configurations(model);
+            }
+            model->run.drive_mounted = drive_mounted;
+
             ts = timestamp_get();
         }
     }

@@ -22,6 +22,8 @@ void model_init(mut_model_t *model) {
     model->run.current_program_index        = -1;
     model->run.minion.communication_enabled = 1;
     model->run.minion.communication_error   = 0;
+    model->run.num_importable_configurations     = 0;
+    model->run.importable_configurations         = NULL;
 }
 
 
@@ -122,6 +124,6 @@ const program_t *model_get_current_program(model_t *model) {
 
 uint8_t model_is_communication_ok(model_t *model) {
     assert(model != NULL);
-    
+
     return model->run.minion.communication_enabled && !model->run.minion.communication_error;
 }

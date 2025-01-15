@@ -22,6 +22,7 @@ int    storage_is_file(const char *path);
 int    storage_update_temporary_firmware(char *app_path, char *temporary_path);
 int    storage_load_configuration(const char *path, configuration_t *config);
 int    storage_save_configuration(const char *path, const configuration_t *config);
+int    storage_copy_file(const char *to, const char *from);
 
 
 #endif

@@ -23,24 +23,28 @@ communication_error_popup_t view_common_communication_error_popup(lv_obj_t *pare
     lv_obj_set_size(blanket, LV_PCT(100), LV_PCT(100));
 
     lv_obj_t *cont = lv_obj_create(blanket);
-    lv_obj_set_size(cont, LV_PCT(80), LV_PCT(80));
+    lv_obj_set_size(cont, LV_PCT(70), LV_PCT(70));
     lv_obj_center(cont);
 
     lv_obj_t *lbl_msg = lv_label_create(cont);
+    lv_obj_set_style_text_font(lbl_msg, STYLE_FONT_BIG, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(lbl_msg, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
     lv_label_set_long_mode(lbl_msg, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(lbl_msg, LV_PCT(95));
     // lv_label_set_text(lbl_msg, view_intl_get_string(model, STRINGS_ERRORE_DI_COMUNICAZIONE));
-    lv_obj_align(lbl_msg, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_align(lbl_msg, LV_ALIGN_CENTER, 0, -48);
 
     lv_obj_t *btn = lv_button_create(cont);
-    lv_obj_set_size(btn, 104, 48);
+    lv_obj_set_size(btn, 128, 56);
     lv_obj_t *lbl_retry = lv_label_create(btn);
+    lv_obj_set_style_text_font(lbl_retry, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
     lv_obj_center(lbl_retry);
     lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, 0);
 
     lv_obj_t *btn_disable = lv_button_create(cont);
-    lv_obj_set_size(btn_disable, 104, 48);
+    lv_obj_set_size(btn_disable, 128, 56);
     lv_obj_t *lbl_disable = lv_label_create(btn_disable);
+    lv_obj_set_style_text_font(lbl_disable, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
     lv_obj_center(lbl_disable);
     lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, 0);
 
@@ -112,7 +116,7 @@ lv_obj_t *view_common_create_play_button(lv_obj_t *parent, lv_align_t align, lv_
 
 lv_obj_t *view_common_back_button_create(lv_obj_t *parent, uint16_t id) {
     lv_obj_t *button = lv_button_create(parent);
-    lv_obj_set_size(button, 56, 56);
+    lv_obj_set_size(button, 54, 54);
 
     lv_obj_t *label = lv_label_create(button);
     lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
@@ -138,8 +142,8 @@ lv_obj_t *view_common_title_create(lv_obj_t *parent, uint16_t back_id, const cha
     lv_obj_t *label_title = lv_label_create(cont);
     lv_obj_set_style_text_font(label_title, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
     lv_label_set_long_mode(label_title, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(label_title, LV_HOR_RES - 64 - 128 -8);
-    lv_obj_align(label_title, LV_ALIGN_LEFT_MID, 64+8, 0);
+    lv_obj_set_width(label_title, LV_HOR_RES - 64 - 128 - 16);
+    lv_obj_align(label_title, LV_ALIGN_LEFT_MID, 64 + 16, 0);
     lv_label_set_text(label_title, text);
 
     lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 0);

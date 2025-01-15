@@ -47,9 +47,6 @@ typedef struct {
         size_t          num_networks;
         wifi_network_t *networks;
         int             connected;
-
-        // size_t  num_drive_machines;
-        // name_t *drive_machines;
     } system;
 
     struct {
@@ -78,6 +75,9 @@ typedef struct {
         int16_t current_program_index;
         uint8_t drive_mounted;
         uint8_t firmware_update_ready;
+
+        size_t num_importable_configurations;
+        char **importable_configurations;
     } run;
 } mut_model_t;
 
