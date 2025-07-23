@@ -33,8 +33,9 @@ void    disk_op_save_wifi_config(void);
 void    disk_op_read_file(void);
 int     disk_op_is_drive_mounted(void);
 int     disk_op_is_firmware_present(void);
-void    disk_op_firmware_update(void);
+void    disk_op_firmware_update(disk_op_callback_t callback);
 void    disk_op_export_config(const char *name);
 void    disk_op_update_importable_configurations(mut_model_t *model);
+void    disk_op_finalize_firmware_update(const char *path, disk_op_callback_t callback);
 
 #endif

@@ -8,6 +8,7 @@
 #include "model/model.h"
 #include "services/socketq.h"
 #include "pthread.h"
+#include "services/timestamp.h"
 
 #define LIGHTMODBUS_MASTER_FULL
 #define LIGHTMODBUS_DEBUG
@@ -53,16 +54,17 @@ struct __attribute__((packed)) task_message {
     union {
         struct {
             uint8_t                            test_on;
+            machine_model_t                    machine_model;
             uint16_t                           outputs;
             uint16_t                           pwm;
             uint16_t                           headgap_offset_up;
             uint16_t                           headgap_offset_down;
-            program_digital_channel_schedule_t digital_channels[PROGRAM_NUM_DIGITAL_CHANNELS];
-            program_dac_channel_state_t        dac_channel[PROGRAM_NUM_TIME_UNITS];
+            program_digital_channel_schedule_t digital_channels[PROGRAM_NUM_CHANNELS];
+            program_pressure_channel_state_t   dac_channel[PROGRAM_NUM_TIME_UNITS];
             program_sensor_channel_threshold_t sensor_channel[PROGRAM_NUM_TIME_UNITS];
             uint16_t                           time_unit_decisecs;
-            program_dac_channel_state_t        dac_levels[PROGRAM_DAC_LEVELS];
-            program_sensor_channel_threshold_t sensor_levels[PROGRAM_SENSOR_LEVELS];
+            uint16_t                           dac_levels[PROGRAM_PRESSURE_LEVELS];
+            uint16_t                           adc_levels[PROGRAM_SENSOR_LEVELS];
         } sync;
     } as;
 };
@@ -119,18 +121,31 @@ void minion_sync(model_t *model) {
                         .test_on             = model->run.minion.write.test_on,
                         .outputs             = model->run.minion.write.outputs,
                         .pwm                 = model->run.minion.write.pwm,
-                        .headgap_offset_up   = model->config.headgap_offset_up,
-                        .headgap_offset_down = model->config.headgap_offset_down,
+                        .machine_model       = model->config.machine_model,
+                        .headgap_offset_up   = model_position_mm_to_adc(model, model->config.headgap_offset_up),
+                        .headgap_offset_down = model_position_mm_to_adc(model, model->config.headgap_offset_down),
                         .time_unit_decisecs  = program->time_unit_decisecs,
                     },
             },
     };
 
-    memcpy(&msg.as.sync.digital_channels, &program->digital_channels, sizeof(program->digital_channels));
-    memcpy(&msg.as.sync.dac_channel, &program->dac_channel, sizeof(program->dac_channel));
+    for (size_t i = 0; i < PROGRAM_NUM_PROGRAMMABLE_CHANNELS; i++) {
+        msg.as.sync.digital_channels[i] = program->digital_channels[i];
+    }
+    // Last channel is always active during the cycle
+    msg.as.sync.digital_channels[PROGRAM_NUM_PROGRAMMABLE_CHANNELS] = 0xFFFFFFFF;
+
+    memcpy(&msg.as.sync.dac_channel, &program->pressure_channel, sizeof(program->pressure_channel));
     memcpy(&msg.as.sync.sensor_channel, &program->sensor_channel, sizeof(program->sensor_channel));
-    memcpy(&msg.as.sync.dac_levels, &program->dac_levels, sizeof(program->dac_levels));
-    memcpy(&msg.as.sync.sensor_levels, &program->sensor_levels, sizeof(program->sensor_levels));
+    for (size_t i = 0; i < PROGRAM_PRESSURE_LEVELS; i++) {
+        msg.as.sync.dac_levels[i] = (program->pressure_levels[i] * 100) / 60;
+    }
+
+    for (size_t i = 0; i < PROGRAM_SENSOR_LEVELS; i++) {
+        msg.as.sync.adc_levels[i] =
+            model->config.ma4_20_offset + model_position_mm_to_adc(model, program->position_levels[i]);
+    }
+
     socketq_send(&messageq, (uint8_t *)&msg);
 }
 
@@ -187,7 +202,7 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
         case TASK_MESSAGE_TAG_SYNC: {
             response.tag = MINION_RESPONSE_TAG_SYNC;
 
-            uint16_t values[8] = {0};
+            uint16_t values[10] = {0};
             if (read_input_registers(master, values, MINION_ADDR, MODBUS_IR_FIRMWARE_VERSION_MAJOR,
                                      sizeof(values) / sizeof(values[0]))) {
                 error = 1;
@@ -197,25 +212,28 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
                 response.as.sync.firmware_version_patch = (values[0] >> 0) & 0x3F;
                 response.as.sync.inputs                 = values[1];
                 response.as.sync.v0_10_adc              = values[2];
-                response.as.sync.ma4_20_adc             = values[4];
-                response.as.sync.running                = values[6];
-                response.as.sync.elapsed_time_ms        = values[7];
+                response.as.sync.ma4_adc                = values[4];
+                response.as.sync.ma20_adc               = values[5];
+                response.as.sync.ma4_20_adc             = values[6];
+                response.as.sync.running                = values[8];
+                response.as.sync.elapsed_time_ms        = values[9];
             }
 
             if (!error) {
-                uint16_t values[54] = {
+                uint16_t values[57] = {
                     message.as.sync.test_on,
                     message.as.sync.outputs,
                     message.as.sync.pwm,
+                    message.as.sync.machine_model,
                     message.as.sync.headgap_offset_up,
                     message.as.sync.headgap_offset_down,
                     message.as.sync.time_unit_decisecs,
                     message.as.sync.dac_levels[0],
                     message.as.sync.dac_levels[1],
                     message.as.sync.dac_levels[2],
-                    message.as.sync.sensor_levels[0],
-                    message.as.sync.sensor_levels[1],
-                    message.as.sync.sensor_levels[2],
+                    message.as.sync.adc_levels[0],
+                    message.as.sync.adc_levels[1],
+                    message.as.sync.adc_levels[2],
                     (message.as.sync.digital_channels[0] >> 16) & 0xFFFF,
                     message.as.sync.digital_channels[0] & 0xFFFF,
                     (message.as.sync.digital_channels[1] >> 16) & 0xFFFF,
@@ -244,6 +262,8 @@ uint8_t handle_message(ModbusMaster *master, struct task_message message) {
                     message.as.sync.digital_channels[12] & 0xFFFF,
                     (message.as.sync.digital_channels[13] >> 16) & 0xFFFF,
                     message.as.sync.digital_channels[13] & 0xFFFF,
+                    (message.as.sync.digital_channels[14] >> 16) & 0xFFFF,
+                    message.as.sync.digital_channels[14] & 0xFFFF,
                     ((message.as.sync.dac_channel[0] & 0xF) << 12) | ((message.as.sync.dac_channel[1] & 0xF) << 8) |
                         ((message.as.sync.dac_channel[2] & 0xF) << 4) | (message.as.sync.dac_channel[3] & 0xF),
                     ((message.as.sync.dac_channel[4] & 0xF) << 12) | ((message.as.sync.dac_channel[5] & 0xF) << 8) |

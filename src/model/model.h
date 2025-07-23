@@ -12,6 +12,16 @@
 #define NUM_INPUTS   12
 #define NUM_OUTPUTS  16
 
+typedef enum {
+    OTA_STATE_NONE = 0,
+    OTA_STATE_IN_PROGRESS,
+    OTA_STATE_DONE,
+} ota_state_t;
+
+typedef enum {
+    MACHINE_MODEL_TRADITIONAL = 0,
+    MACHINE_MODEL_DOUBLE_FRONT,
+} machine_model_t;
 
 typedef enum {
     WIFI_CONNECTED,
@@ -19,7 +29,6 @@ typedef enum {
     WIFI_SCANNING,
     WIFI_INACTIVE,
 } wifi_status_t;
-
 
 typedef struct {
     int  signal;
@@ -29,10 +38,13 @@ typedef struct {
 typedef struct {
     name_t    channel_names[PROGRAM_NUM_CHANNELS];
     program_t programs[NUM_PROGRAMS];
+    uint16_t  ma4_20_offset;
     uint16_t  headgap_offset_up;
     uint16_t  headgap_offset_down;
+    uint16_t  machine_model;
+    uint16_t  position_sensor_scale_mm;
 
-    program_digital_channel_schedule_t digital_channels[PROGRAM_NUM_DIGITAL_CHANNELS];
+    program_digital_channel_schedule_t digital_channels[PROGRAM_NUM_CHANNELS];
 } configuration_t;
 
 // collection of all models
@@ -47,7 +59,7 @@ typedef struct {
         size_t          num_networks;
         wifi_network_t *networks;
         int             connected;
-    } system;
+    } network;
 
     struct {
         struct {
@@ -59,6 +71,8 @@ typedef struct {
                 uint16_t firmware_version_minor;
                 uint16_t firmware_version_patch;
                 uint16_t inputs;
+                uint16_t ma4_adc;
+                uint16_t ma20_adc;
                 uint16_t ma4_20_adc;
                 uint16_t v0_10_adc;
                 uint8_t  running;
@@ -78,7 +92,15 @@ typedef struct {
 
         size_t num_importable_configurations;
         char **importable_configurations;
+
+        uint8_t network_connected;
     } run;
+
+    struct {
+        int   flag_crash;
+        int   flag_firmware_update;
+        char *new_firmware_path;
+    } args;
 } mut_model_t;
 
 typedef const mut_model_t model_t;
@@ -98,5 +120,10 @@ void             model_clear_current_program(mut_model_t *model);
 void             model_set_current_program(mut_model_t *model, uint16_t current_program_index);
 uint8_t          model_is_communication_ok(model_t *model);
 void             model_copy_program(mut_model_t *model, uint16_t source_index, uint16_t destination_index);
+uint16_t         model_get_uncalibrated_position_mm(model_t *model);
+uint16_t         model_get_calibrated_position_mm(model_t *model);
+uint16_t         model_position_mm_to_adc(model_t *model, uint16_t mm);
+uint16_t         model_get_current_position_target(model_t *model);
+void             model_reset_program(mut_model_t *model, uint16_t program_index);
 
 #endif

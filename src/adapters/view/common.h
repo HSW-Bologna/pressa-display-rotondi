@@ -7,6 +7,13 @@
 #include "model/model.h"
 
 
+struct view_common_password_popup {
+    lv_obj_t *blanket;
+
+    lv_obj_t *textarea;
+};
+
+
 typedef struct {
     lv_obj_t *blanket;
 
@@ -28,7 +35,8 @@ void      view_common_set_hidden(lv_obj_t *obj, uint8_t hidden);
 lv_obj_t *view_common_back_button_create(lv_obj_t *parent, uint16_t id);
 lv_obj_t *view_common_gradient_background_create(lv_obj_t *parent);
 
-communication_error_popup_t view_common_communication_error_popup(lv_obj_t *parent);
+communication_error_popup_t       view_common_communication_error_popup(lv_obj_t *parent);
+struct view_common_password_popup view_common_password_popup(lv_obj_t *parent, int id);
 
 
 #endif

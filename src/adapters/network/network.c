@@ -14,18 +14,19 @@
 #include <unistd.h>
 #include <linux/if_link.h>
 
-#include "services/system_time.h"
-#include "wifi.h"
+#include "network.h"
 #include "wpa_ctrl.h"
 #include "log.h"
 
-#ifdef BUILD_CONFIG_SIMULATOR
+#ifdef TARGET_DEBUG
 #define WPASOCK "/run/wpa_supplicant/wlp112s0"
 #define remount_ro()
 #define remount_rw()
 #else
-#define WPASOCK "/var/run/wpa_supplicant/wlan0"
-#define ROOTFS  "/"
+#define WPASOCK       "/var/run/wpa_supplicant/wlan0"
+#define ROOTFS        "/"
+#define MAX_NAME_SIZE 32
+
 
 static inline void remount_ro() {
     if (mount("/dev/root", ROOTFS, "ext2", MS_REMOUNT | MS_RDONLY, NULL) < 0)
@@ -45,7 +46,7 @@ static int strncpy_until(char *dest, size_t max, char *src, char until);
 static struct wpa_ctrl *ctrl = NULL;
 
 
-int wifi_init(void) {
+int network_init(void) {
     ctrl = wpa_ctrl_open(WPASOCK);
 
     if (ctrl == NULL) {
@@ -57,7 +58,7 @@ int wifi_init(void) {
     }
 }
 
-void wifi_connect(char *ssid, char *psk) {
+void network_connect(char *ssid, char *psk) {
     if (ctrl == NULL)
         return;
 
@@ -75,7 +76,7 @@ void wifi_connect(char *ssid, char *psk) {
     wpa_ctrl_request(ctrl, "RECONNECT", reply, 128, NULL);
 }
 
-wifi_status_t wifi_status(char *ssid) {
+wifi_status_t network_status(char *ssid) {
     wifi_status_t res = WIFI_INACTIVE;
     char          reply[1024];
     char          value[32];
@@ -83,27 +84,25 @@ wifi_status_t wifi_status(char *ssid) {
         return WIFI_INACTIVE;
     }
 
-    if (wpa_ctrl_request(ctrl, "STATUS", reply, 1024, NULL) < 0) {
+    if (wpa_ctrl_request(ctrl, "STATUS", reply, 1024, NULL) < 0)
         return WIFI_INACTIVE;
-    }
 
     char *newline = strtok(reply, "\n");
 
     while (newline && *newline != '\0') {
         if (sscanf(newline, "wpa_state=%s\n", value) == 1) {
-            if (strcmp(value, "INACTIVE") == 0) {
+            if (strcmp(value, "INACTIVE") == 0)
                 return WIFI_INACTIVE;
-            } else if (strcmp(value, "DISCONNECTED") == 0) {
+            else if (strcmp(value, "DISCONNECTED") == 0)
                 return WIFI_INACTIVE;
-            } else if (strcmp(value, "COMPLETED") == 0) {
+            else if (strcmp(value, "COMPLETED") == 0)
                 res = WIFI_CONNECTED;
-            } else if (strcmp(value, "SCANNING") == 0) {
+            else if (strcmp(value, "SCANNING") == 0)
                 return WIFI_SCANNING;
-            } else {
+            else
                 return WIFI_CONNECTING;
-            }
         } else if (strncmp(newline, "ssid=", 5) == 0) {
-            strncpy_until(ssid, 33, &newline[5], '\n');
+            strncpy_until(ssid, MAX_NAME_SIZE, &newline[5], '\n');
         }
         newline = strtok(NULL, "\n");
     }
@@ -112,7 +111,7 @@ wifi_status_t wifi_status(char *ssid) {
 
 
 
-void wifi_scan(void) {
+void network_scan(void) {
     char reply[1024];
     if (ctrl == NULL) {
         return;
@@ -121,7 +120,7 @@ void wifi_scan(void) {
 }
 
 
-int wifi_read_scan(wifi_network_t **networks) {
+int network_read_wifi_scan(wifi_network_t **networks) {
     char *step;
     if (ctrl == NULL)
         return 0;
@@ -170,7 +169,7 @@ int wifi_read_scan(wifi_network_t **networks) {
         if (!(tab = strtok_r(step2, "\t", &step2)))     // SSID
             continue;
 
-        strncpy_until(ptr[valid_count].ssid, sizeof(ptr[valid_count].ssid), tab, '\n');
+        strncpy_until(ptr[valid_count].ssid, MAX_NAME_SIZE, tab, '\n');
         valid_count++;
     }
 
@@ -178,19 +177,18 @@ int wifi_read_scan(wifi_network_t **networks) {
 }
 
 
-int wifi_save_config(void) {
+void network_save_config(void) {
     if (ctrl == NULL) {
-        return -1;
+        return;
     }
     char reply[1024];
     remount_rw();
-    int res = wpa_ctrl_request(ctrl, "SAVE_CONFIG", reply, 1024, NULL);
+    wpa_ctrl_request(ctrl, "SAVE_CONFIG", reply, 1024, NULL);
     remount_ro();
-    return res;
 }
 
 
-int wifi_get_ip_address(char *ifname, char *ipaddr) {
+int network_get_ip_address(char *ifname, char *ipaddr) {
     struct ifaddrs *ifaddr = NULL, *ifa = NULL;
     int             family, s, n;
     char            host[NI_MAXHOST];
@@ -234,7 +232,7 @@ int wifi_get_ip_address(char *ifname, char *ipaddr) {
 }
 
 
-int wifi_ntp_update(time_t *time) {
+int network_ntp_update(time_t *time) {
 
 #define NTP_TIMESTAMP_DELTA 2208988800ULL
 
@@ -339,18 +337,18 @@ int wifi_ntp_update(time_t *time) {
     return 0;
 }
 
-static void *wifi_time_sync_task(void *arg) {
+static void *network_time_sync_task(void *arg) {
     void (*cb)(time_t) = arg;
     time_t time;
-    assert(wifi_ntp_update(&time) == 0);
+    assert(network_ntp_update(&time) == 0);
     cb(time);
     pthread_exit(NULL);
 }
 
 
-pthread_t launch_wifi_time_sync_task(void (*cb)(time_t)) {
+pthread_t launch_network_time_sync_task(void (*cb)(time_t)) {
     pthread_t id;
-    pthread_create(&id, NULL, wifi_time_sync_task, (void *)cb);
+    pthread_create(&id, NULL, network_time_sync_task, (void *)cb);
     return id;
 }
 

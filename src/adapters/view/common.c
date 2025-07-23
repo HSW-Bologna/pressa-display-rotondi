@@ -17,6 +17,40 @@ void view_common_set_hidden(lv_obj_t *obj, uint8_t hidden) {
 }
 
 
+struct view_common_password_popup view_common_password_popup(lv_obj_t *parent, int id) {
+    lv_obj_t *blanket = lv_obj_create(parent);
+    lv_obj_add_style(blanket, &style_transparent_cont, LV_STATE_DEFAULT);
+    lv_obj_set_size(blanket, LV_PCT(100), LV_PCT(100));
+
+    lv_obj_t *cont = lv_obj_create(blanket);
+    lv_obj_add_style(cont, &style_padless_cont, LV_STATE_DEFAULT);
+    lv_obj_set_size(cont, LV_PCT(70), LV_PCT(70));
+    lv_obj_center(cont);
+
+    lv_obj_t *textarea = lv_textarea_create(cont);
+    lv_obj_set_style_text_font(textarea, STYLE_FONT_BIG, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(textarea, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
+    lv_textarea_set_password_mode(textarea, true);
+    lv_textarea_set_placeholder_text(textarea, "Password");
+    lv_obj_set_size(textarea, LV_PCT(100), LV_PCT(20));
+    lv_obj_align(textarea, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_t *keyboard = lv_keyboard_create(cont);
+    lv_obj_set_style_text_font(keyboard, STYLE_FONT_BIG, LV_STATE_DEFAULT);
+    lv_obj_set_size(keyboard, LV_PCT(100), LV_PCT(75));
+    lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_NUMBER);
+    lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    view_register_object_default_callback(keyboard, id);
+
+    lv_keyboard_set_textarea(keyboard, textarea);
+
+    return (struct view_common_password_popup){
+        .blanket  = blanket,
+        .textarea = textarea,
+    };
+}
+
+
 communication_error_popup_t view_common_communication_error_popup(lv_obj_t *parent) {
     lv_obj_t *blanket = lv_obj_create(parent);
     lv_obj_add_style(blanket, &style_transparent_cont, LV_STATE_DEFAULT);

@@ -17,6 +17,10 @@ typedef struct {
     void (*save_configuration)(pman_handle_t handle);
     void (*retry_communication)(pman_handle_t handle);
     void (*export_configuration)(pman_handle_t handle, const char *name);
+    void (*ota_update)(pman_handle_t handle);
+    void (*finalize_ota_update)(pman_handle_t handle);
+    void (*wifi_scan)(pman_handle_t handle);
+    void (*connect_to_wifi)(pman_handle_t handle, char *ssid, char *psk);
 } view_protocol_t;
 
 typedef enum {
@@ -57,7 +61,7 @@ void             view_show_toast(uint8_t error, const char *fmt, ...);
 
 
 extern const pman_page_t page_home, page_info, page_settings_home, page_programs_home, page_execution_home,
-    page_execution_programs, page_programs_setup, page_test, page_config, page_program, page_choice, page_execution,
+    page_execution_programs, page_programs_setup, page_settings, page_config, page_program, page_choice, page_execution,
     page_info;
 
 

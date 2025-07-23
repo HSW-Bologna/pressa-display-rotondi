@@ -34,11 +34,12 @@ typedef struct {
 struct page_data {
     lv_obj_t *time_bar;
 
-    channel_schedule_unit_t channel_schedules[PROGRAM_NUM_CHANNELS][PROGRAM_NUM_TIME_UNITS];
+    lv_obj_t *label_position;
+
+    channel_schedule_unit_t channel_schedules[PROGRAM_NUM_PROGRAMMABLE_CHANNELS][PROGRAM_NUM_TIME_UNITS];
 
     timestamp_t last_minion_update_ts;
 
-    model_t      *model;
     pman_timer_t *timer;
 };
 
@@ -46,10 +47,10 @@ struct page_data {
 static void      update_page(model_t *model, struct page_data *pdata);
 static void      configuration_from_digital_channel(uint8_t                           *channel_configuration,
                                                     program_digital_channel_schedule_t digital_channel_schedule);
-static void      configuration_from_dac_channel(uint8_t                     *channel_configuration,
-                                                program_dac_channel_state_t *dac_channel_states);
+static void      configuration_from_pressure_channel(uint8_t                          *channel_configuration,
+                                                     program_pressure_channel_state_t *pressure_channel_states);
 static void      configuration_from_sensor_channel(uint8_t                            *channel_configuration,
-                                                   program_sensor_channel_threshold_t *dac_channel_thresholds);
+                                                   program_sensor_channel_threshold_t *pressure_channel_thresholds);
 static lv_obj_t *channel_schedule_create(lv_obj_t *parent, channel_schedule_unit_t channel_schedules[],
                                          uint8_t *channel_configuration, uint8_t digital);
 
@@ -71,9 +72,17 @@ static void open_page(pman_handle_t handle, void *state) {
 
     model_t         *model   = view_get_model(handle);
     const program_t *program = model_get_current_program(model);
-    pdata->model             = model;
 
     view_common_title_create(lv_screen_active(), BTN_BACK_ID, program->name);
+
+    {
+        lv_obj_t *label = lv_label_create(lv_screen_active());
+        lv_obj_set_style_text_font(label, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
+        lv_obj_set_width(label, 200);
+        lv_obj_align(label, LV_ALIGN_TOP_RIGHT, 0, 0);
+        pdata->label_position = label;
+    }
 
     lv_obj_t *bottom_container = lv_obj_create(lv_screen_active());
     lv_obj_set_style_border_width(bottom_container, 0, LV_STATE_DEFAULT);
@@ -101,7 +110,7 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_set_flex_flow(left_panel, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(left_panel, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
+    for (uint16_t i = 0; i < PROGRAM_NUM_PROGRAMMABLE_CHANNELS; i++) {
         lv_obj_t *obj = lv_obj_create(left_panel);
         lv_obj_set_style_radius(obj, 0, LV_STATE_DEFAULT);
         lv_obj_set_style_border_side(obj, LV_BORDER_SIDE_LEFT | LV_BORDER_SIDE_BOTTOM | LV_BORDER_SIDE_TOP,
@@ -129,10 +138,11 @@ static void open_page(pman_handle_t handle, void *state) {
     lv_obj_set_flex_align(right_panel, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
     uint8_t channel_configuration[PROGRAM_NUM_TIME_UNITS] = {0};
-    for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
-        // Channel 8 should be the DAC channel
-        if (i == PROGRAM_DAC_CHANNEL_INDEX) {
-            configuration_from_dac_channel(channel_configuration, (program_dac_channel_state_t *)program->dac_channel);
+    for (uint16_t i = 0; i < PROGRAM_NUM_PROGRAMMABLE_CHANNELS; i++) {
+        // Channel 8 should be the pressure channel
+        if (i == PROGRAM_PRESSURE_CHANNEL_INDEX) {
+            configuration_from_pressure_channel(channel_configuration,
+                                                (program_pressure_channel_state_t *)program->pressure_channel);
         }
         // Channel 12 should be the 4-20ma channel
         else if (i == PROGRAM_SENSOR_CHANNEL_INDEX) {
@@ -143,8 +153,6 @@ static void open_page(pman_handle_t handle, void *state) {
         else {
             uint16_t digital_index = i;
             if (i > PROGRAM_SENSOR_CHANNEL_INDEX) {
-                digital_index -= 2;
-            } else if (i > PROGRAM_DAC_CHANNEL_INDEX) {
                 digital_index -= 1;
             }
 
@@ -152,7 +160,7 @@ static void open_page(pman_handle_t handle, void *state) {
         }
 
         channel_schedule_create(right_panel, pdata->channel_schedules[i], channel_configuration,
-                                i != PROGRAM_DAC_CHANNEL_INDEX && i != PROGRAM_SENSOR_CHANNEL_INDEX);
+                                i != PROGRAM_PRESSURE_CHANNEL_INDEX && i != PROGRAM_SENSOR_CHANNEL_INDEX);
     }
 
     view_register_object_default_callback(right_panel, OBJ_RIGHT_PANEL_ID);
@@ -271,11 +279,15 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
 static void update_page(model_t *model, struct page_data *pdata) {
     int16_t current_time_unit_index = -1;
 
+    lv_label_set_text_fmt(pdata->label_position, "%4i/%4i mm\n%4i - %4i mm", model_get_calibrated_position_mm(model),
+                          model_get_current_position_target(model), model->config.headgap_offset_down,
+                          model->config.headgap_offset_up);
+
     if (!model->run.minion.read.running) {
         lv_obj_set_x(pdata->time_bar, 0);
         lv_obj_scroll_to_view(pdata->time_bar, LV_ANIM_OFF);
     } else {
-        const program_t *program = model_get_current_program(pdata->model);
+        const program_t *program = model_get_current_program(model);
         uint32_t         elapsed_time_ms =
             model->run.minion.read.elapsed_milliseconds + timestamp_since(pdata->last_minion_update_ts) + LAG_MS;
         uint32_t duration = program_get_duration_milliseconds(program);
@@ -293,7 +305,7 @@ static void update_page(model_t *model, struct page_data *pdata) {
         lv_obj_scroll_to_view(pdata->time_bar, LV_ANIM_OFF);
     }
 
-    for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
+    for (uint16_t i = 0; i < PROGRAM_NUM_PROGRAMMABLE_CHANNELS; i++) {
         // First set all unit groups to the default color
         for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
             if (pdata->channel_schedules[i][j].obj) {
@@ -309,9 +321,9 @@ static void update_page(model_t *model, struct page_data *pdata) {
         for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
             if (pdata->channel_schedules[i][j].obj) {
                 if (j == current_time_unit_index) {
-                lv_obj_set_style_border_color(pdata->channel_schedules[i][j].obj,
-                                              lv_color_lighten(pdata->channel_schedules[i][j].color, LV_OPA_10),
-                                              LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_color(pdata->channel_schedules[i][j].obj,
+                                                  lv_color_lighten(pdata->channel_schedules[i][j].color, LV_OPA_10),
+                                                  LV_STATE_DEFAULT);
                     lv_obj_set_style_bg_color(pdata->channel_schedules[i][j].obj,
                                               lv_color_lighten(pdata->channel_schedules[i][j].color, LV_OPA_40),
                                               LV_STATE_DEFAULT);
@@ -409,18 +421,18 @@ static void configuration_from_digital_channel(uint8_t                          
 }
 
 
-static void configuration_from_dac_channel(uint8_t                     *channel_configuration,
-                                           program_dac_channel_state_t *dac_channel_states) {
+static void configuration_from_pressure_channel(uint8_t                          *channel_configuration,
+                                                program_pressure_channel_state_t *pressure_channel_states) {
     for (uint16_t i = 0; i < PROGRAM_NUM_TIME_UNITS; i++) {
-        channel_configuration[i] = dac_channel_states[i];
+        channel_configuration[i] = pressure_channel_states[i];
     }
 }
 
 
 static void configuration_from_sensor_channel(uint8_t                            *channel_configuration,
-                                              program_sensor_channel_threshold_t *dac_channel_thresholds) {
+                                              program_sensor_channel_threshold_t *pressure_channel_thresholds) {
     for (uint16_t i = 0; i < PROGRAM_NUM_TIME_UNITS; i++) {
-        channel_configuration[i] = dac_channel_thresholds[i];
+        channel_configuration[i] = pressure_channel_thresholds[i];
     }
 }
 

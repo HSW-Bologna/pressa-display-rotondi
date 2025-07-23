@@ -2,7 +2,7 @@
 #define CONTROLLER_GUI_H_INCLUDED
 
 
-#include "view/view.h"
+#include "adapters/view/view.h"
 
 
 void controller_gui_manage(mut_model_t *model);

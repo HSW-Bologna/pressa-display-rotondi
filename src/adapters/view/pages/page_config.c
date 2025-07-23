@@ -10,6 +10,7 @@
 #include <time.h>
 #include "../common.h"
 #include "log.h"
+#include "app_config.h"
 
 
 enum {
@@ -19,8 +20,12 @@ enum {
     BTN_MOD_HEADGAP_OFFSET_UP_ID,
     BTN_MOD_HEADGAP_OFFSET_DOWN_ID,
     BTN_COMMUNICATION_ID,
+    BTN_POSITION_SENSOR_CALIBRATION_ID,
     BTN_COPY_ID,
+    BTN_DELETE_ID,
     BTN_EXPORT_ID,
+    DD_MACHINE_MODEL,
+    SLIDER_POSITION_SCALE,
     KEYBOARD_ID,
 };
 
@@ -30,8 +35,15 @@ struct page_data {
     lv_obj_t *label_headgap_offset_up;
     lv_obj_t *label_headgap_offset_down;
     lv_obj_t *label_operation;
+    lv_obj_t *label_position_sensor;
+    lv_obj_t *label_position_scale;
+
+    lv_obj_t *dropdown_machine_model;
+
+    lv_obj_t *slider_position_scale;
 
     lv_obj_t *button_copy;
+    lv_obj_t *button_delete;
     lv_obj_t *button_import;
     lv_obj_t *button_export;
     lv_obj_t *buttons_programs[NUM_PROGRAMS];
@@ -50,6 +62,7 @@ struct page_data {
     enum {
         OPERATION_NONE = 0,
         OPERATION_COPY,
+        OPERATION_DELETE,
         OPERATION_IMPORT,
         OPERATION_EXPORT,
     } operation;
@@ -151,6 +164,18 @@ static void open_page(pman_handle_t handle, void *state) {
                 pdata->button_copy = button;
             }
 
+            {     // Delete button
+                lv_obj_t *button = lv_button_create(button_cont);
+                lv_obj_add_flag(button, LV_OBJ_FLAG_CHECKABLE);
+                lv_obj_set_size(button, 56, 56);
+                lv_obj_t *label = lv_label_create(button);
+                lv_obj_center(label);
+                lv_obj_set_style_text_font(label, STYLE_FONT_BIG, LV_STATE_DEFAULT);
+                lv_label_set_text(label, LV_SYMBOL_TRASH);
+                view_register_object_default_callback(button, BTN_DELETE_ID);
+                pdata->button_delete = button;
+            }
+
             {     // Import button
                 lv_obj_t *button = lv_button_create(button_cont);
                 lv_obj_add_flag(button, LV_OBJ_FLAG_CHECKABLE);
@@ -192,13 +217,13 @@ static void open_page(pman_handle_t handle, void *state) {
             lv_obj_set_flex_flow(headgap_offset_cont, LV_FLEX_FLOW_COLUMN);
             lv_obj_set_flex_align(headgap_offset_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                                   LV_FLEX_ALIGN_CENTER);
-            lv_obj_set_size(headgap_offset_cont, 390, 256);
+            lv_obj_set_size(headgap_offset_cont, 390, 250);
             lv_obj_align(headgap_offset_cont, LV_ALIGN_TOP_LEFT, 0, 0);
             lv_obj_remove_flag(headgap_offset_cont, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t *label = lv_label_create(headgap_offset_cont);
             lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
-            lv_label_set_text(label, "Offset traferro");
+            lv_label_set_text(label, "Offset");
 
             {
                 lv_obj_t *obj = lv_obj_create(headgap_offset_cont);
@@ -238,27 +263,112 @@ static void open_page(pman_handle_t handle, void *state) {
                 pdata->label_headgap_offset_down = label;
 
                 {
-                    lv_obj_t *button = param_button_create(obj, BTN_MOD_HEADGAP_OFFSET_UP_ID, -1);
+                    lv_obj_t *button = param_button_create(obj, BTN_MOD_HEADGAP_OFFSET_DOWN_ID, -1);
                     lv_obj_align_to(button, obj_label, LV_ALIGN_OUT_LEFT_MID, -16, 0);
                 }
 
                 {
-                    lv_obj_t *button = param_button_create(obj, BTN_MOD_HEADGAP_OFFSET_UP_ID, +1);
+                    lv_obj_t *button = param_button_create(obj, BTN_MOD_HEADGAP_OFFSET_DOWN_ID, +1);
                     lv_obj_align_to(button, obj_label, LV_ALIGN_OUT_RIGHT_MID, 16, 0);
                 }
             }
         }
 
-        {     // Communication options
-            lv_obj_t *cont_com = lv_obj_create(tab);
-            lv_obj_set_layout(cont_com, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(cont_com, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_flex_align(cont_com, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-            lv_obj_set_size(cont_com, 350, 200);
-            lv_obj_align(cont_com, LV_ALIGN_TOP_RIGHT, 0, 0);
+        {     // Position
+            lv_obj_t *cont_par = lv_obj_create(tab);
+            lv_obj_set_layout(cont_par, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(cont_par, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_flex_align(cont_par, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+            lv_obj_set_size(cont_par, 350, 250);
+            lv_obj_align(cont_par, LV_ALIGN_TOP_RIGHT, 0, 0);
 
             {
-                lv_obj_t *button = lv_button_create(cont_com);
+                lv_obj_t *label = lv_label_create(cont_par);
+                lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+                lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+                lv_obj_set_width(label, LV_PCT(100));
+                lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
+                lv_label_set_text(label, "Sensore di posizione");
+            }
+
+            {
+                lv_obj_t *button = lv_button_create(cont_par);
+                lv_obj_set_size(button, 300, 60);
+                lv_obj_set_layout(button, LV_LAYOUT_FLEX);
+                lv_obj_set_flex_flow(button, LV_FLEX_FLOW_ROW);
+                lv_obj_set_flex_align(button, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+                view_register_object_default_callback(button, BTN_POSITION_SENSOR_CALIBRATION_ID);
+
+                {
+                    lv_obj_t *label = lv_label_create(button);
+                    lv_obj_set_style_text_font(label, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+                    lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+                    lv_obj_set_width(label, 200);
+                    lv_label_set_text(label, "Calibrazione");
+                }
+
+                {
+                    lv_obj_t *label = lv_label_create(button);
+                    lv_obj_set_style_text_font(label, STYLE_FONT_SMALL, LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
+                    lv_obj_set_width(label, 120);
+                    pdata->label_position_sensor = label;
+                }
+            }
+
+            {
+                lv_obj_t *cont_position = lv_obj_create(cont_par);
+                lv_obj_remove_flag(cont_position, LV_OBJ_FLAG_SCROLLABLE);
+                lv_obj_add_style(cont_position, &style_transparent_cont, LV_STATE_DEFAULT);
+                lv_obj_set_size(cont_position, LV_PCT(100), 90);
+
+                lv_obj_t *slider = lv_slider_create(cont_position);
+                lv_slider_set_range(
+                    slider, 0, (APP_CONFIG_MAX_POSITION_SENSOR_SCALE_MM - APP_CONFIG_MIN_POSITION_SENSOR_SCALE_MM) / 5);
+                lv_obj_set_size(slider, 240, 40);
+                lv_obj_align(slider, LV_ALIGN_TOP_MID, 0, 8);
+                view_register_object_default_callback(slider, SLIDER_POSITION_SCALE);
+                pdata->slider_position_scale = slider;
+
+                lv_obj_t *label = lv_label_create(cont_position);
+                lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+                lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, 2);
+                pdata->label_position_scale = label;
+            }
+        }
+
+        {     // Machine model
+            lv_obj_t *cont_machine = lv_obj_create(tab);
+
+            lv_obj_set_size(cont_machine, 390, 120);
+            lv_obj_align(cont_machine, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+
+            lv_obj_t *label = lv_label_create(cont_machine);
+            lv_obj_set_style_text_font(label, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+            lv_label_set_text(label, "Modello Macchina");
+            lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 0);
+
+            lv_obj_t *dropdown = lv_dropdown_create(cont_machine);
+            lv_obj_set_style_text_font(dropdown, STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(lv_dropdown_get_list(dropdown), STYLE_FONT_MEDIUM, LV_STATE_DEFAULT);
+            lv_obj_set_size(dropdown, 280, 40);
+            lv_dropdown_set_options(dropdown, "Tradizionale\nDoppio Davanti");
+            lv_obj_align(dropdown, LV_ALIGN_BOTTOM_MID, 0, 0);
+            view_register_object_default_callback(dropdown, DD_MACHINE_MODEL);
+            pdata->dropdown_machine_model = dropdown;
+        }
+
+        {     // Communication
+            lv_obj_t *cont_par = lv_obj_create(tab);
+            lv_obj_remove_flag(cont_par, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_layout(cont_par, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(cont_par, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_flex_align(cont_par, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+            lv_obj_set_size(cont_par, 350, 120);
+            lv_obj_align(cont_par, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+
+            {
+                lv_obj_t *button = lv_button_create(cont_par);
                 lv_obj_set_layout(button, LV_LAYOUT_FLEX);
                 lv_obj_set_flex_flow(button, LV_FLEX_FLOW_ROW);
                 lv_obj_set_flex_align(button, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -304,6 +414,7 @@ static void open_page(pman_handle_t handle, void *state) {
     VIEW_ADD_WATCHED_VARIABLE(&model->run.drive_mounted, 0);
     VIEW_ADD_WATCHED_VARIABLE(&model->run.num_importable_configurations, 0);
     VIEW_ADD_WATCHED_VARIABLE(&model->run.importable_configurations, 0);
+    VIEW_ADD_WATCHED_VARIABLE(&model->run.minion, 0);
 
     update_page(model, pdata);
 }
@@ -360,6 +471,10 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                                 }
 
                                 update_page(model, pdata);
+                            } else if (pdata->operation == OPERATION_DELETE) {
+                                model_reset_program(model, program_index);
+                                pdata->operation = OPERATION_NONE;
+                                update_page(model, pdata);
                             } else {
                                 pdata->page_program_arg.modified      = &pdata->modified;
                                 pdata->page_program_arg.program_index = program_index;
@@ -367,6 +482,13 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                                 msg.stack_msg =
                                     PMAN_STACK_MSG_PUSH_PAGE_EXTRA(&page_program, (void *)&pdata->page_program_arg);
                             }
+                            break;
+                        }
+
+                        case BTN_POSITION_SENSOR_CALIBRATION_ID: {
+                            pdata->modified             = 1;
+                            model->config.ma4_20_offset = model->run.minion.read.ma4_20_adc;
+                            update_page(model, pdata);
                             break;
                         }
 
@@ -394,11 +516,41 @@ static pman_msg_t page_event(pman_handle_t handle, void *state, pman_event_t eve
                             update_page(model, pdata);
                             break;
 
+                        case BTN_DELETE_ID:
+                            pdata->operation = OPERATION_DELETE;
+                            update_page(model, pdata);
+                            break;
+
                         case BTN_EXPORT_ID:
                             pdata->operation = OPERATION_EXPORT;
                             lv_textarea_set_text(pdata->textarea, "configurazione");
                             update_page(model, pdata);
                             break;
+
+                        default:
+                            break;
+                    }
+                    break;
+                }
+
+                case LV_EVENT_VALUE_CHANGED: {
+                    switch (view_get_obj_id(target)) {
+                        case DD_MACHINE_MODEL: {
+                            pdata->modified             = 1;
+                            model->config.machine_model = lv_dropdown_get_selected(pdata->dropdown_machine_model);
+                            update_page(model, pdata);
+                            break;
+                        }
+
+                        case SLIDER_POSITION_SCALE: {
+                            pdata->modified = 1;
+                            model->config.position_sensor_scale_mm =
+                                APP_CONFIG_MIN_POSITION_SENSOR_SCALE_MM +
+                                lv_slider_get_value(pdata->slider_position_scale) * 5;
+                            model_check_parameters(model);
+                            update_page(model, pdata);
+                            break;
+                        }
 
                         default:
                             break;
@@ -454,6 +606,16 @@ static void update_page(model_t *model, struct page_data *pdata) {
     lv_label_set_text_fmt(pdata->label_headgap_offset_up, "Sopra: %imm", model->config.headgap_offset_up);
     lv_label_set_text_fmt(pdata->label_headgap_offset_down, "Sotto: %imm", model->config.headgap_offset_down);
 
+    lv_dropdown_set_selected(pdata->dropdown_machine_model, model->config.machine_model);
+
+    lv_label_set_text_fmt(pdata->label_position_sensor, "%04i mm\n[%04i mm]", model_get_calibrated_position_mm(model),
+                          model_get_uncalibrated_position_mm(model));
+
+    lv_label_set_text_fmt(pdata->label_position_scale, "%03i mm", model->config.position_sensor_scale_mm);
+    lv_slider_set_value(pdata->slider_position_scale,
+                        (model->config.position_sensor_scale_mm - APP_CONFIG_MIN_POSITION_SENSOR_SCALE_MM) / 5,
+                        LV_ANIM_OFF);
+
     if (model->run.minion.communication_enabled) {
         lv_led_on(pdata->led_communication);
     } else {
@@ -482,6 +644,23 @@ static void update_page(model_t *model, struct page_data *pdata) {
 
             view_common_set_hidden(pdata->label_status, 0);
             lv_obj_add_state(pdata->button_copy, LV_STATE_CHECKED);
+            lv_obj_remove_state(pdata->button_delete, LV_STATE_CHECKED);
+            lv_obj_remove_state(pdata->button_import, LV_STATE_CHECKED);
+            lv_obj_remove_state(pdata->button_export, LV_STATE_CHECKED);
+            view_common_set_hidden(pdata->obj_blanket, 1);
+            break;
+
+
+        case OPERATION_DELETE:
+            lv_label_set_text(pdata->label_status, "Selezionare un programma da azzerare");
+
+            for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
+                lv_obj_remove_state(pdata->buttons_programs[i], LV_STATE_CHECKED);
+            }
+
+            view_common_set_hidden(pdata->label_status, 0);
+            lv_obj_remove_state(pdata->button_copy, LV_STATE_CHECKED);
+            lv_obj_add_state(pdata->button_delete, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_import, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_export, LV_STATE_CHECKED);
             view_common_set_hidden(pdata->obj_blanket, 1);
@@ -492,7 +671,7 @@ static void update_page(model_t *model, struct page_data *pdata) {
             break;
         }
 
-        default:
+        default: {
             for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
                 lv_obj_remove_state(pdata->buttons_programs[i], LV_STATE_CHECKED);
             }
@@ -500,9 +679,11 @@ static void update_page(model_t *model, struct page_data *pdata) {
             view_common_set_hidden(pdata->label_status, 1);
             view_common_set_hidden(pdata->obj_blanket, 1);
             lv_obj_remove_state(pdata->button_copy, LV_STATE_CHECKED);
+            lv_obj_remove_state(pdata->button_delete, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_import, LV_STATE_CHECKED);
             lv_obj_remove_state(pdata->button_export, LV_STATE_CHECKED);
             break;
+        }
     }
 
     if (model->run.drive_mounted) {

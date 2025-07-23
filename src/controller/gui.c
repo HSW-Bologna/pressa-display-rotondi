@@ -1,7 +1,9 @@
+#include <linux/reboot.h>
+#include <sys/reboot.h>
 #include <lvgl.h>
 #include "gui.h"
 #include "services/timestamp.h"
-#include "view/view.h"
+#include "adapters/network/network.h"
 #include "controller.h"
 #include "storage/disk_op.h"
 #include "log.h"
@@ -15,6 +17,10 @@ static void test_pwm(pman_handle_t handle, uint8_t percentage);
 static void save_configuration(pman_handle_t handle);
 static void retry_communication(pman_handle_t handle);
 static void export_configuration(pman_handle_t handle, const char *name);
+static void ota_update(pman_handle_t handle);
+static void finalize_ota_update(pman_handle_t handle);
+static void wifi_scan(pman_handle_t handle);
+static void connect_to_wifi(pman_handle_t handle, char *ssid, char *psk);
 
 
 view_protocol_t gui_view_protocol = {
@@ -25,6 +31,10 @@ view_protocol_t gui_view_protocol = {
     .save_configuration   = save_configuration,
     .export_configuration = export_configuration,
     .retry_communication  = retry_communication,
+    .ota_update           = ota_update,
+    .finalize_ota_update  = finalize_ota_update,
+    .wifi_scan            = wifi_scan,
+    .connect_to_wifi      = connect_to_wifi,
 };
 
 
@@ -99,4 +109,55 @@ static void retry_communication(pman_handle_t handle) {
 
     mut_model_t *model                    = view_get_model(handle);
     model->run.minion.communication_error = 0;
+}
+
+
+static void ota_done_cb(uint8_t error, void *data, void *arg) {
+    (void)data;
+    (void)arg;
+    if (!error) {
+        log_info("Ota successful, restarting");
+        reboot(LINUX_REBOOT_CMD_RESTART);
+    } else {
+        log_warn("Ota failed!");
+    }
+}
+
+
+static void ota_update(pman_handle_t handle) {
+    (void)handle;
+    log_info("Ota update");
+    disk_op_firmware_update(ota_done_cb);
+}
+
+
+static void finalize_ota_done_cb(uint8_t error, void *data, void *arg) {
+    (void)data;
+    (void)arg;
+    if (!error) {
+        log_info("Ota completely successful, restarting");
+        exit(0);
+    } else {
+        log_warn("Ota failed!");
+    }
+}
+
+
+static void finalize_ota_update(pman_handle_t handle) {
+    mut_model_t *model = view_get_model(handle);
+    log_info("Finalizing ota update");
+    disk_op_finalize_firmware_update(model->args.new_firmware_path, finalize_ota_done_cb);
+}
+
+
+static void wifi_scan(pman_handle_t handle) {
+    (void)handle;
+    network_scan();
+}
+
+
+static void connect_to_wifi(pman_handle_t handle, char *ssid, char *psk) {
+    (void)handle;
+    network_connect(ssid, psk);
+    disk_op_save_wifi_config();
 }

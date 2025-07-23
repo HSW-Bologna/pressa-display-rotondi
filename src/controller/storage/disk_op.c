@@ -15,7 +15,7 @@
 #include "disk_op.h"
 #include "storage.h"
 #include "config/app_config.h"
-#include "../network/wifi.h"
+#include "adapters/network/network.h"
 #include "log.h"
 #include "model/model.h"
 
@@ -23,7 +23,7 @@
 #define REQUEST_SOCKET_PATH  "/tmp/.application_disk_request_socket"
 #define RESPONSE_SOCKET_PATH "/tmp/.application_disk_response_socket"
 #define MOUNT_ATTEMPTS       5
-#define APP_UPDATE           "/tmp/mnt/pressa-display-rotondi.bin"
+#define APP_UPDATE           "/tmp/mnt/pressa-display-rotondi"
 
 #ifdef BUILD_CONFIG_SIMULATOR
 #define TEMPORARY_APP "./newapp"
@@ -55,6 +55,7 @@ typedef enum {
     DISK_OP_MESSAGE_TAG_EXPORT_CONFIG,
     DISK_OP_MESSAGE_TAG_SAVE_WIFI_CONFIG,
     DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE,
+    DISK_OP_MESSAGE_TAG_FINALIZE_FIRMWARE_UPDATE,
 } task_request_tag_t;
 
 
@@ -70,6 +71,9 @@ typedef struct {
         struct {
             const char *name;
         } export_config;
+        struct {
+            const char *path;
+        } finalize_firmware_update;
     } as;
 } task_request_t;
 
@@ -130,8 +134,22 @@ void disk_op_save_wifi_config(void) {
 }
 
 
-void disk_op_firmware_update(void) {
-    simple_request(DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE);
+void disk_op_finalize_firmware_update(const char *path, disk_op_callback_t callback) {
+    task_request_t msg = {
+        .tag                              = DISK_OP_MESSAGE_TAG_FINALIZE_FIRMWARE_UPDATE,
+        .as.finalize_firmware_update.path = path,
+        .callback                         = callback,
+    };
+    socketq_send(&requestq, (uint8_t *)&msg);
+}
+
+
+void disk_op_firmware_update(disk_op_callback_t callback) {
+    task_request_t msg = {
+        .tag      = DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE,
+        .callback = callback,
+    };
+    socketq_send(&requestq, (uint8_t *)&msg);
 }
 
 
@@ -153,7 +171,7 @@ void disk_op_update_importable_configurations(mut_model_t *model) {
         while ((dir = readdir(d)) != NULL) {
             if (dir->d_type == DT_REG) {
                 char *extension = strstr(dir->d_name, APP_CONFIG_CONFIGURATION_EXTENSION);
-                if (strlen(extension) == strlen(APP_CONFIG_CONFIGURATION_EXTENSION)) {
+                if (extension && strlen(extension) == strlen(APP_CONFIG_CONFIGURATION_EXTENSION)) {
                     uint16_t i = model->run.num_importable_configurations;
 
                     model->run.num_importable_configurations++;
@@ -208,8 +226,9 @@ static void *disk_interaction_task(void *args) {
         task_request_t msg;
         if (socketq_receive_nonblock(&requestq, (uint8_t *)&msg, 500)) {
             task_response_t response = {
-                .data = NULL,
-                .arg  = msg.arg,
+                .callback = msg.callback,
+                .data     = NULL,
+                .arg      = msg.arg,
             };
 
             switch (msg.tag) {
@@ -221,9 +240,9 @@ static void *disk_interaction_task(void *args) {
                     break;
 
                 case DISK_OP_MESSAGE_TAG_EXPORT_CONFIG: {
-                    response.payload                                 = 1;
-                    response.response.tag                            = DISK_OP_RESPONSE_TAG_CONFIGURATION_EXPORTED;
-                    size_t len = strlen(APP_CONFIG_DRIVE_MOUNT_PATH) + strlen(msg.as.export_config.name) +
+                    response.payload      = 1;
+                    response.response.tag = DISK_OP_RESPONSE_TAG_CONFIGURATION_EXPORTED;
+                    size_t len            = strlen(APP_CONFIG_DRIVE_MOUNT_PATH) + strlen(msg.as.export_config.name) +
                                  strlen(APP_CONFIG_CONFIGURATION_EXTENSION) + 5;
 
                     char *path = malloc(len);
@@ -253,12 +272,20 @@ static void *disk_interaction_task(void *args) {
                     break;
 
                 case DISK_OP_MESSAGE_TAG_SAVE_WIFI_CONFIG:
-                    response.error = wifi_save_config();
+                    response.error = 0;
+                    network_save_config();
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
 
                 case DISK_OP_MESSAGE_TAG_FIRMWARE_UPDATE:
                     response.error = storage_update_temporary_firmware(APP_UPDATE, TEMPORARY_APP);
+                    socketq_send(&responseq, (uint8_t *)&response);
+                    break;
+
+                case DISK_OP_MESSAGE_TAG_FINALIZE_FIRMWARE_UPDATE:
+                    response.error = storage_update_final_firmware((char *)(msg.as.finalize_firmware_update.path
+                                                                                ? msg.as.finalize_firmware_update.path
+                                                                                : "root/app"));
                     socketq_send(&responseq, (uint8_t *)&response);
                     break;
             }

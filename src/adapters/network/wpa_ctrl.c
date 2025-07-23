@@ -12,13 +12,11 @@
 
 #include "wpa_ctrl.h"
 
-
 struct wpa_ctrl {
     int                s;
     struct sockaddr_un local;
     struct sockaddr_un dest;
 };
-
 
 struct wpa_ctrl *wpa_ctrl_open(const char *ctrl_path) {
     struct wpa_ctrl *ctrl;
@@ -85,7 +83,6 @@ try_again:
     return ctrl;
 }
 
-
 void wpa_ctrl_close(struct wpa_ctrl *ctrl) {
     if (ctrl == NULL)
         return;
@@ -94,7 +91,6 @@ void wpa_ctrl_close(struct wpa_ctrl *ctrl) {
         close(ctrl->s);
     free(ctrl);
 }
-
 
 int wpa_ctrl_request(struct wpa_ctrl *ctrl, const char *cmd, char *reply, size_t reply_len,
                      void (*msg_cb)(char *msg, size_t len)) {
@@ -143,7 +139,6 @@ int wpa_ctrl_request(struct wpa_ctrl *ctrl, const char *cmd, char *reply, size_t
     }
     return -3;
 }
-
 
 int wpa_ctrl_recv(struct wpa_ctrl *ctrl, char *reply, size_t *reply_len) {
     int res;

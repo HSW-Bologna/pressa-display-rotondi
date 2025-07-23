@@ -5,10 +5,10 @@
 #include "lvgl.h"
 #include "controller.h"
 #include "model/model.h"
-#include "view/view.h"
+#include "adapters/view/view.h"
+#include "adapters/network/network.h"
 #include "storage/disk_op.h"
 #include "storage/storage.h"
-#include "controller/network/wifi.h"
 #include "config/app_config.h"
 #include "log.h"
 #include "gui.h"
@@ -22,8 +22,8 @@ static void load_programs_callback(model_t *pmodel, void *data, void *arg);
 void controller_init(mut_model_t *model) {
     (void)model;
 
-    wifi_init();
     minion_init();
+    network_init();
 
     disk_op_init();
     disk_op_load_config();
@@ -66,9 +66,28 @@ void controller_manage(mut_model_t *model) {
                     model->run.minion.read.firmware_version_patch = response.as.sync.firmware_version_patch;
                     model->run.minion.read.inputs                 = response.as.sync.inputs;
                     model->run.minion.read.v0_10_adc              = response.as.sync.v0_10_adc;
+                    model->run.minion.read.ma4_adc                = response.as.sync.ma4_adc;
+                    model->run.minion.read.ma20_adc               = response.as.sync.ma20_adc;
                     model->run.minion.read.ma4_20_adc             = response.as.sync.ma4_20_adc;
                     model->run.minion.read.running                = response.as.sync.running;
                     model->run.minion.read.elapsed_milliseconds   = response.as.sync.elapsed_time_ms;
+
+
+                    if (model_is_program_ready(model)) {
+                        const program_t *program = model_get_current_program(model);
+
+                        uint16_t time_unit_index =
+                            model->run.minion.read.elapsed_milliseconds / (program->time_unit_decisecs * 100);
+                        if (time_unit_index < PROGRAM_NUM_TIME_UNITS) {
+                            size_t  sensor_threshold_index = program->sensor_channel[time_unit_index];
+                            int16_t position_target        = model->config.ma4_20_offset +
+                                                      (int16_t)model_position_mm_to_adc(
+                                                          model, program->position_levels[sensor_threshold_index - 1]);
+
+                            log_info("MA420: %4i, %4i", model->run.minion.read.ma4_20_adc, position_target);
+                        }
+                    }
+
                     break;
                 }
             }
@@ -102,8 +121,33 @@ void controller_manage(mut_model_t *model) {
 
             if (drive_mounted && !model->run.drive_mounted) {
                 disk_op_update_importable_configurations(model);
+                model->run.firmware_update_ready = disk_op_is_firmware_present();
             }
             model->run.drive_mounted = drive_mounted;
+
+            ts = timestamp_get();
+        }
+    }
+
+    {
+        static timestamp_t ts = 0;
+        if (timestamp_is_expired(ts, 2000)) {
+            model->network.num_networks = network_read_wifi_scan(&model->network.networks);
+            wifi_status_t status        = network_status(model->network.ssid);
+
+            if (status != WIFI_SCANNING) {
+                model->network.net_status = status;
+            }
+            int ip1 = 0, ip2 = 0;
+            if (status == WIFI_CONNECTED) {
+                ip1 = network_get_ip_address(APP_CONFIG_IFWIFI, model->network.wifi_ipaddr);
+            } else {
+                strcpy(model->network.wifi_ipaddr, "_._._._");
+            }
+
+            ip2 = network_get_ip_address(APP_CONFIG_IFETH, model->network.eth_ipaddr);
+
+            model->run.network_connected = ip1 || ip2;
 
             ts = timestamp_get();
         }

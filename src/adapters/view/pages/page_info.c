@@ -6,8 +6,8 @@
 #include "src/page.h"
 #include <assert.h>
 #include <stdlib.h>
-#include "view/common.h"
-#include "view/style.h"
+#include "adapters/view/common.h"
+#include "adapters/view/style.h"
 #include "config/app_config.h"
 
 

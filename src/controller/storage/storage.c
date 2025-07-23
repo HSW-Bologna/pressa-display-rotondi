@@ -17,10 +17,10 @@
 #include "services/serializer.h"
 
 
-#define PARAMETERS_SERIALIZED_SIZE 4
+#define PARAMETERS_SERIALIZED_SIZE 8
 #define PROGRAM_SERIALIZED_SIZE                                                                                        \
-    (PROGRAM_NAME_SIZE + sizeof(program_digital_channel_schedule_t) * PROGRAM_NUM_DIGITAL_CHANNELS +                   \
-     PROGRAM_NUM_TIME_UNITS * 2 + 2 + PROGRAM_DAC_LEVELS + PROGRAM_SENSOR_LEVELS)
+    (PROGRAM_NAME_SIZE + sizeof(program_digital_channel_schedule_t) * PROGRAM_NUM_CHANNELS +                           \
+     PROGRAM_NUM_TIME_UNITS * 2 + 2 + PROGRAM_PRESSURE_LEVELS * 2 + PROGRAM_SENSOR_LEVELS * 2)
 
 #define STORAGE_VERSION 0
 
@@ -75,6 +75,9 @@ int storage_load_configuration(const char *path, configuration_t *config) {
         parameters_buffer_index += deserialize_uint16_be(&config->headgap_offset_up, &buffer[parameters_buffer_index]);
         parameters_buffer_index +=
             deserialize_uint16_be(&config->headgap_offset_down, &buffer[parameters_buffer_index]);
+        parameters_buffer_index += deserialize_uint16_be(&config->ma4_20_offset, &buffer[parameters_buffer_index]);
+        parameters_buffer_index +=
+            deserialize_uint16_be(&config->position_sensor_scale_mm, &buffer[parameters_buffer_index]);
 
         for (uint16_t i = 0; i < PROGRAM_NUM_CHANNELS; i++) {
             if (read_exactly((uint8_t *)config->channel_names[i], sizeof(name_t), fp) < 0) {
@@ -85,8 +88,7 @@ int storage_load_configuration(const char *path, configuration_t *config) {
         }
 
         for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
-            uint8_t  buffer[PROGRAM_SERIALIZED_SIZE] = {0};
-            uint16_t programs_buffer_index           = 0;
+            uint8_t buffer[PROGRAM_SERIALIZED_SIZE] = {0};
 
             if (read_exactly(buffer, sizeof(buffer), fp) < 0) {
                 log_error("Failed to read file %s: %s", path, strerror(errno));
@@ -94,41 +96,39 @@ int storage_load_configuration(const char *path, configuration_t *config) {
                 return -1;
             }
 
-            program_t *program = &config->programs[i];
-            memcpy(program->name, &buffer[programs_buffer_index], PROGRAM_NAME_SIZE);
+            uint16_t   program_buffer_index = 0;
+            program_t *program              = &config->programs[i];
+            memcpy(program->name, &buffer[program_buffer_index], PROGRAM_NAME_SIZE);
             program->name[PROGRAM_NAME_LENGTH] = '\0';
-            programs_buffer_index += PROGRAM_NAME_SIZE;
+            program_buffer_index += PROGRAM_NAME_SIZE;
 
-            for (uint16_t j = 0; j < PROGRAM_NUM_DIGITAL_CHANNELS; j++) {
-                programs_buffer_index +=
-                    deserialize_uint32_be(&program->digital_channels[j], &buffer[programs_buffer_index]);
+            for (uint16_t j = 0; j < PROGRAM_NUM_CHANNELS; j++) {
+                program_buffer_index +=
+                    deserialize_uint32_be(&program->digital_channels[j], &buffer[program_buffer_index]);
             }
 
             for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
                 uint8_t value = 0;
-                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
-                program->dac_channel[j] = value;
+                program_buffer_index += deserialize_uint8(&value, &buffer[program_buffer_index]);
+                program->pressure_channel[j] = value;
             }
 
             for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
                 uint8_t value = 0;
-                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
+                program_buffer_index += deserialize_uint8(&value, &buffer[program_buffer_index]);
                 program->sensor_channel[j] = value;
             }
 
-            programs_buffer_index +=
-                deserialize_uint16_be(&program->time_unit_decisecs, &buffer[programs_buffer_index]);
+            program_buffer_index += deserialize_uint16_be(&program->time_unit_decisecs, &buffer[program_buffer_index]);
 
-            for (uint16_t j = 0; j < PROGRAM_DAC_LEVELS; j++) {
-                uint8_t value = 0;
-                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
-                program->dac_levels[j] = value;
+            for (uint16_t j = 0; j < PROGRAM_PRESSURE_LEVELS; j++) {
+                program_buffer_index +=
+                    deserialize_uint16_be(&program->pressure_levels[j], &buffer[program_buffer_index]);
             }
 
             for (uint16_t j = 0; j < PROGRAM_SENSOR_LEVELS; j++) {
-                uint8_t value = 0;
-                programs_buffer_index += deserialize_uint8(&value, &buffer[programs_buffer_index]);
-                program->sensor_levels[j] = value;
+                program_buffer_index +=
+                    deserialize_uint16_be(&program->position_levels[j], &buffer[program_buffer_index]);
             }
         }
 
@@ -142,10 +142,12 @@ int storage_load_configuration(const char *path, configuration_t *config) {
 
 
 int storage_save_configuration(const char *path, const configuration_t *config) {
+    remount_rw();
     FILE *fp = fopen(path, "wb");
 
     if (!fp) {
         log_error("Failed to open file %s: %s", path, strerror(errno));
+        remount_ro();
         return -1;
     }
 
@@ -154,10 +156,13 @@ int storage_save_configuration(const char *path, const configuration_t *config) 
     uint16_t parameters_buffer_index               = 1;     // Skip the version
     parameters_buffer_index += serialize_uint16_be(&buffer[parameters_buffer_index], config->headgap_offset_up);
     parameters_buffer_index += serialize_uint16_be(&buffer[parameters_buffer_index], config->headgap_offset_down);
+    parameters_buffer_index += serialize_uint16_be(&buffer[parameters_buffer_index], config->ma4_20_offset);
+    parameters_buffer_index += serialize_uint16_be(&buffer[parameters_buffer_index], config->position_sensor_scale_mm);
 
     if (write_exactly(buffer, sizeof(buffer), fp) < 0) {
         log_error("Failed to write file %s: %s", path, strerror(errno));
         fclose(fp);
+        remount_ro();
         return -1;
     }
 
@@ -165,51 +170,51 @@ int storage_save_configuration(const char *path, const configuration_t *config) 
         if (write_exactly((const uint8_t *)config->channel_names[i], sizeof(name_t), fp) < 0) {
             log_error("Failed to write file %s: %s", path, strerror(errno));
             fclose(fp);
+            remount_ro();
             return -1;
         }
     }
 
     for (uint16_t i = 0; i < NUM_PROGRAMS; i++) {
-        uint16_t programs_buffer_index           = 0;
-        uint8_t  buffer[PROGRAM_SERIALIZED_SIZE] = {0};
+        uint8_t buffer[PROGRAM_SERIALIZED_SIZE] = {0};
 
-        const program_t *program = &config->programs[i];
-        memcpy(&buffer[programs_buffer_index], program->name, PROGRAM_NAME_SIZE);
-        programs_buffer_index += PROGRAM_NAME_SIZE;
+        uint16_t         program_buffer_index = 0;
+        const program_t *program              = &config->programs[i];
+        memcpy(&buffer[program_buffer_index], program->name, PROGRAM_NAME_SIZE);
+        program_buffer_index += PROGRAM_NAME_SIZE;
 
-        for (uint16_t j = 0; j < PROGRAM_NUM_DIGITAL_CHANNELS; j++) {
-            programs_buffer_index += serialize_uint32_be(&buffer[programs_buffer_index], program->digital_channels[j]);
+        for (uint16_t j = 0; j < PROGRAM_NUM_CHANNELS; j++) {
+            program_buffer_index += serialize_uint32_be(&buffer[program_buffer_index], program->digital_channels[j]);
         }
 
         for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
-            if (i == 0) {
-                log_info("%i %i", j, program->dac_channel[j]);
-            }
-            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->dac_channel[j]);
+            program_buffer_index += serialize_uint8(&buffer[program_buffer_index], program->pressure_channel[j]);
         }
 
         for (uint16_t j = 0; j < PROGRAM_NUM_TIME_UNITS; j++) {
-            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->sensor_channel[j]);
+            program_buffer_index += serialize_uint8(&buffer[program_buffer_index], program->sensor_channel[j]);
         }
 
-        programs_buffer_index += serialize_uint16_be(&buffer[programs_buffer_index], program->time_unit_decisecs);
+        program_buffer_index += serialize_uint16_be(&buffer[program_buffer_index], program->time_unit_decisecs);
 
-        for (uint16_t j = 0; j < PROGRAM_DAC_LEVELS; j++) {
-            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->dac_levels[j]);
+        for (uint16_t j = 0; j < PROGRAM_PRESSURE_LEVELS; j++) {
+            program_buffer_index += serialize_uint16_be(&buffer[program_buffer_index], program->pressure_levels[j]);
         }
 
         for (uint16_t j = 0; j < PROGRAM_SENSOR_LEVELS; j++) {
-            programs_buffer_index += serialize_uint8(&buffer[programs_buffer_index], program->sensor_levels[j]);
+            program_buffer_index += serialize_uint16_be(&buffer[program_buffer_index], program->position_levels[j]);
         }
 
         if (write_exactly(buffer, sizeof(buffer), fp) < 0) {
             log_error("Failed to read file %s: %s", path, strerror(errno));
             fclose(fp);
+            remount_ro();
             return -1;
         }
     }
 
     fclose(fp);
+    remount_ro();
     return 0;
 }
 
@@ -245,10 +250,12 @@ size_t storage_get_file_size(const char *path) {
 
 
 void storage_clear_file(const char *path) {
+    remount_rw();
     FILE *fp = fopen(path, "w");
     if (fp != NULL) {
         fclose(fp);
     }
+    remount_ro();
 }
 
 
@@ -329,31 +336,72 @@ int storage_is_file(const char *path) {
 }
 
 
-int storage_update_temporary_firmware(char *app_path, char *temporary_path) {
+int storage_update_final_firmware(char *dest) {
     int res = 0;
-
 #ifdef BUILD_CONFIG_SIMULATOR
-    return 0;
+    log_info("Aggiornamento del firmare nella locazione %s", dest);
+#else
+    log_info("Update final firmware at %s", dest);
+    char myname[PATH_MAX] = {0};
+
+    if ((res = readlink("/proc/self/exe", myname, sizeof(myname) - 1)) < 0) {
+        log_error("Non sono riuscito a trovare il mio nome: %s", strerror(errno));
+        return -1;
+    }
+
+    if (mount("/dev/root", "/", "ext2", MS_REMOUNT, NULL) < 0) {
+        log_error("Errore nel montare la root: %s (%i)", strerror(errno), errno);
+        return -1;
+    }
+
+    if ((res = storage_copy_file(dest, myname)) < 0) {
+        log_error("Non sono riuscito ad aggiornare il firmware");
+    }
+
+    if (mount("/dev/root", "/", "ext2", MS_REMOUNT | MS_RDONLY, NULL) < 0) {
+        log_warn("Errore nel rimontare la root: %s (%i)", strerror(errno), errno);
+    }
+
+    sync();
+
 #endif
 
+    return res;
+}
+
+
+
+int storage_update_temporary_firmware(char *app_path, char *temporary_path) {
+#ifdef BUILD_CONFIG_SIMULATOR
+    (void)app_path;
+    (void)temporary_path;
+    return 0;
+#else
+    int res = 0;
+
     if (storage_is_file(app_path)) {
+        log_info("Update temporary firmware at %s", temporary_path);
+
         if (mount("/dev/root", "/", "ext2", MS_REMOUNT, NULL) < 0) {
             log_error("Errore nel montare la root: %s (%i)", strerror(errno), errno);
             return -1;
         }
 
-        if ((res = storage_copy_file(temporary_path, app_path)) < 0)
+        if ((res = storage_copy_file(temporary_path, app_path)) < 0) {
             log_error("Non sono riuscito ad aggiornare il firmware");
+        }
 
         if (mount("/dev/root", "/", "ext2", MS_REMOUNT | MS_RDONLY, NULL) < 0)
             log_warn("Errore nel rimontare la root: %s (%i)", strerror(errno), errno);
 
         sync();
     } else {
+        log_error("Count not find %s", app_path);
         return -1;
     }
 
     return res;
+#endif
 }
 
 
@@ -435,7 +483,7 @@ int storage_copy_file(const char *to, const char *from) {
         return -1;
     }
 
-    fd_to = open(to, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    fd_to = open(to, O_WRONLY | O_CREAT | O_TRUNC, 0700);
     if (fd_to < 0) {
         log_warn("Non sono riuscito ad aprire %s: %s", to, strerror(errno));
         close(fd_from);

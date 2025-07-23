@@ -53,7 +53,7 @@ int bsp_rs232_read(uint8_t *buffer, size_t required_len) {
             total += len;
         } else {
         }
-    } while (!timestamp_is_expired(start, 50));
+    } while (!timestamp_is_expired(start, 50) && total < required_len);
 
     return total;
 }
@@ -100,10 +100,10 @@ int set_interface_attribs(int fd, int speed) {
 
     tty.c_cflag |= (CLOCAL | CREAD); /* ignore modem controls */
     tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;      /* 8-bit characters */
-    tty.c_cflag &= ~PARENB;  /* no parity bit */
-    tty.c_cflag &= ~CSTOPB;  /* only need 1 stop bit */
-    tty.c_cflag &= ~CRTSCTS; /* no hardware flowcontrol */
+    tty.c_cflag |= CS8;     /* 8-bit characters */
+    tty.c_cflag &= ~PARENB; /* no parity bit */
+    tty.c_cflag &= ~CSTOPB; /* only need 1 stop bit */
+    // tty.c_cflag &= ~CRTSCTS; /* no hardware flowcontrol */
 
     /* setup for non-canonical mode */
     tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);

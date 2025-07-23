@@ -21,6 +21,8 @@ typedef struct {
             uint8_t  firmware_version_patch;
             uint16_t inputs;
             uint16_t v0_10_adc;
+            uint16_t ma4_adc;
+            uint16_t ma20_adc;
             uint16_t ma4_20_adc;
             uint8_t  running;
             uint16_t elapsed_time_ms;
