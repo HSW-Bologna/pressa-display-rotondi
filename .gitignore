@@ -7,5 +7,7 @@ app
 .cache
 .sconsign.dblite
 build-*
+build/
 compile_commands.json
 .vscode/settings.json
+managed_components

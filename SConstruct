@@ -17,10 +17,13 @@ def PhonyTargets(
 
 
 SIMULATED_PROGRAM = "app"
-TARGET_PROGRAM = "pressa-display-rotondi"
-LIBS = "lib"
-MAIN = "src"
-LVGL = f"{LIBS}/lvgl"
+SIMULATOR = "simulator"
+FREERTOS = f"{SIMULATOR}/freertos-simulator"
+CJSON = f"{SIMULATOR}/cJSON"
+B64 = f"{SIMULATOR}/b64"
+LIBS = "components"
+MAIN = "main"
+LVGL = f"managed_components/lvgl__lvgl"
 
 
 CFLAGS = [
@@ -29,13 +32,15 @@ CFLAGS = [
     "-Wno-unused-function",
     "-g",
     "-O0",
-    "-DBUILD_CONFIG_DISPLAY_HORIZONTAL_RESOLUTION=800",
-    "-DBUILD_CONFIG_DISPLAY_VERTICAL_RESOLUTION=480",
-    #"-std=c2x",
+    "-DprojCOVERAGE_TEST=0",
+    "-DBUILD_CONFIG_SIMULATED_APP=1",
+    # "-std=c2x",
 ]
 
 CPPPATH = [
-    f"#{MAIN}", f"#{MAIN}/config", f"#{LVGL}", f"#{LIBS}/log/src", f"#{LIBS}/liblightmodbus/include",
+    f"#{MAIN}", f"#{MAIN}/config", f"#{LVGL}", f"#{LIBS}/log/src",
+    f"#{SIMULATOR}", f"#{SIMULATOR}/port",
+    f"#{LIBS}/liblightmodbus-esp/repo/include", f"#{CJSON}", f"#{B64}"
 ]
 
 
@@ -46,22 +51,44 @@ def get_target(env, name, suffix="", dependencies=[]):
         return s
 
     sources = [File(filename)
-               for filename in Path(f"{MAIN}/").rglob('*.c')]
-    sources += [ File(filename) for filename in Path(f'{LVGL}/src').rglob('*.c') ]
-    sources += [ File(f"#{LIBS}/log/src/log.c") ]
+               for filename in Path(f"{MAIN}/adapters").rglob('*.c')]
+    sources += [File(filename)
+                for filename in Path(f"{MAIN}/config").rglob('*.c')]
+    sources += [File(filename)
+                for filename in Path(f"{MAIN}/controller").rglob('*.c')]
+    sources += [File(filename)
+                for filename in Path(f"{MAIN}/model").rglob('*.c')]
+    sources += [File(filename)
+                for filename in Path(f"{MAIN}/services").rglob('*.c')]
+    sources += [File(filename)
+                for filename in Path(f"{SIMULATOR}/port").rglob('*.c')]
+    sources += [File(filename)
+                for filename in Path(f"{LVGL}/src").rglob('*.c')]
+    sources += [File(f"{SIMULATOR}/simulator.c")]
+    sources += [File(f'{CJSON}/cJSON.c')]
+    sources += [File(f'{B64}/encode.c'),
+                File(f'{B64}/decode.c'), File(f'{B64}/buffer.c')]
 
     pman_env = env
-    (lv_pman, include) = SConscript( f'{LIBS}/c-page-manager/SConscript', variant_dir=f"build-{name}/lv_pman", exports=['pman_env'])
+    (lv_pman, include) = SConscript(
+        f'{LIBS}/c-page-manager/SConscript', variant_dir=f"build-{name}/lv_pman", exports=['pman_env'])
     env['CPPPATH'] += [include]
 
     c_watcher_env = env
-    (watcher, include) = SConscript( f'{LIBS}/c-watcher/SConscript', variant_dir=f"build-{name}/c-watcher", exports=['c_watcher_env'])
+    (watcher, include) = SConscript(f'{LIBS}/c-watcher/SConscript',
+                                    variant_dir=f"build-{name}/c-watcher", exports=['c_watcher_env'])
+    env['CPPPATH'] += [include]
+
+    freertos_suffix = ""
+    freertos_env = env
+    (freertos, include) = SConscript(
+        f'{FREERTOS}/SConscript', exports=['freertos_env', "freertos_suffix"])
     env['CPPPATH'] += [include]
 
     objects = [env.Object(
         f"{rchop(x.get_abspath(), '.c')}{suffix}", x) for x in sources]
 
-    target = env.Program(name, objects + [lv_pman, watcher])
+    target = env.Program(name, objects + [lv_pman, watcher, freertos])
     env.Depends(target, dependencies)
     env.Clean(target, f"build-{name}")
     return target
@@ -80,51 +107,18 @@ def main():
         "LIBS": ["-lpthread", "-lSDL2"]
     }
 
-    simulated_env = Environment(**env_options)
-    simulated_env.Tool('compilation_db')
-
-    target_env = simulated_env.Clone(
-        LIBS=["-lpthread", "-larchive"], CC="~/Mount/Data/Projects/new_buildroot/buildrpi3/output/host/bin/aarch64-buildroot-linux-uclibc-gcc",
-        CCFLAGS=CFLAGS + ["-DLV_USE_LINUX_FBDEV=1", "-DLV_USE_EVDEV=1"])
+    env = Environment(**env_options)
+    env.Tool('compilation_db')
 
     simulated_prog = get_target(
-        simulated_env, SIMULATED_PROGRAM, dependencies=[])
-    target_prog = get_target(target_env, "pressa-display-rotondi", suffix="-pi", dependencies=[])
+        env, SIMULATED_PROGRAM, dependencies=[])
 
     PhonyTargets('run', f"./{SIMULATED_PROGRAM}",
-                 simulated_prog, simulated_env)
-    compileDB = simulated_env.CompilationDatabase('compile_commands.json')
-
-    ip_addr = ARGUMENTS.get("ip", "")
-    compatibility_options = "-o StrictHostKeyChecking=no -o PubkeyAcceptedAlgorithms=+ssh-rsa"
-    eval = "eval `ssh-agent` && ssh-add"
-
-    PhonyTargets(
-        'kill-remote',
-        f"{eval} && ssh {compatibility_options} root@{ip_addr} 'killall gdbserver; killall app; killall sh'; true", None)
-    PhonyTargets(
-        "scp", f"{eval} && scp -O {compatibility_options} {TARGET_PROGRAM} root@{ip_addr}:/tmp/app", [target_prog, "kill-remote"])
-    PhonyTargets(
-        'ssh', f"{eval} && ssh {compatibility_options} root@{ip_addr}", [])
-    PhonyTargets(
-        'run-remote',
-        f"{eval} && ssh {compatibility_options} root@{ip_addr} /tmp/app",
-        'scp')
-    PhonyTargets(
-        "update-remote",
-        f'{eval} && ssh {compatibility_options} root@{ip_addr} "mount -o rw,remount / && cp /tmp/app /root/app && sync && reboot && exit"', "scp")
-    PhonyTargets(
-        "debug",
-        f"{eval} && ssh {compatibility_options} root@{ip_addr} gdbserver localhost:1235 /tmp/app", "scp")
-    PhonyTargets(
-        "run-remote",
-        f"{eval} && ssh {compatibility_options} root@{ip_addr} /tmp/app",
-        "scp")
+                 simulated_prog, env)
+    compileDB = env.CompilationDatabase('compile_commands.json')
 
     Depends(simulated_prog, compileDB)
     Default(simulated_prog)
-    Alias("target", target_prog)
-    Alias("all", [target_prog, simulated_prog])
 
 
 main()

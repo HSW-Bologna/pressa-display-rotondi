@@ -7,6 +7,8 @@ sudo apt-get install libsdl2-dev
 
 ## TODO
 
+ - try hardware rotation (https://components.espressif.com/components/espressif/esp_lvgl_port/versions/2.6.0)
+
  - ~L'impostazione della pressione deve essere in bar~
  - L'impostazione del livello e' in mm (+- 1 mm)
  - ~12 + 8 discesa, solo 12 salita~
